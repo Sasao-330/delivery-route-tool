@@ -1,1 +1,1393 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>配送ルート＆時刻表作成ツール（新規得意先登録対応版）</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 12px; background: #f4f6f9; color: #333; }
+  .top-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  h1 { font-size: 1.2rem; margin: 0; color: #1a365d; }
+  .main-nav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+  .nav-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav-tab { padding: 8px 16px; font-size: 0.95rem; font-weight: bold; border: 2px solid #cbd5e0; background: #f7fafc; color: #4a5568; border-radius: 6px; cursor: pointer; }
+  .nav-tab.active { background: #2b6cb0; color: #fff; border-color: #2b6cb0; }
+  .nav-right { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-manual { padding: 8px 14px; font-size: 0.9rem; font-weight: bold; background: #2c5282; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  .btn-add-client { padding: 8px 14px; font-size: 0.9rem; font-weight: bold; background: #2f855a; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
 
+  .card { background: #fff; border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .setting-box { background: #edf2f7; padding: 10px 12px; border-radius: 6px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 0.88rem; }
+  .setting-box label { font-weight: bold; display: flex; align-items: center; gap: 5px; }
+  input[type="text"], input[type="time"], input[type="number"], select, textarea { padding: 6px 8px; font-size: 0.9rem; border: 1px solid #cbd5e0; border-radius: 5px; background: #fff; }
+  input[type="number"] { width: 64px; }
+  button, .gmap-btn { padding: 7px 12px; font-size: 0.88rem; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; }
+  .btn-primary { background: #2b6cb0; color: #fff; }
+  .btn-sub { background: #e2e8f0; color: #2d3748; }
+  .btn-green { background: #2f855a; color: #fff; }
+  .btn-red { background: #c53030; color: #fff; }
+  .btn-yellow { background: #d69e2e; color: #1a202c; }
+  .btn-purple { background: #6b46c1; color: #fff; }
+  .btn-mini { padding: 3px 8px; font-size: 0.8rem; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; border-radius: 4px; }
+  .btn-del { padding: 3px 8px; font-size: 0.8rem; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 4px; }
+  .gmap-btn { background: #dd6b20; color: #fff; margin: 4px 6px 4px 0; }
+  .area-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .tab { padding: 4px 9px; background: #edf2f7; border-radius: 4px; cursor: pointer; font-size: 0.82rem; }
+  .tab.active { background: #2b6cb0; color: #fff; }
+  .list-box { max-height: 235px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
+  .item-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; gap: 6px; font-size: 0.86rem; }
+  .item-row:hover { background: #f7fafc; }
+  .item-main { display: flex; align-items: center; flex: 1; min-width: 220px; cursor: pointer; }
+  .item-main input[type="checkbox"] { margin-right: 8px; transform: scale(1.2); cursor: pointer; }
+  .item-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: bold; margin-right: 6px; color: #fff; }
+  .area-A { background: #4a5568; } .area-B { background: #d69e2e; } .area-C { background: #dd6b20; }
+  .area-D { background: #c53030; } .area-E { background: #38a169; } .area-F { background: #319795; }
+  .area-G { background: #3182ce; } .area-H { background: #5a67d8; } .area-I { background: #805ad5; }
+  .area-他 { background: #718096; }
+  .private-panel { background: #faf5ff; border: 1px solid #d6bcfa; border-radius: 6px; padding: 12px; margin-top: 10px; }
+  .private-grid, .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .private-grid label, .form-grid label { display: flex; flex-direction: column; font-size: 0.8rem; font-weight: bold; color: #2d3748; gap: 3px; }
+  .time-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-left: 6px; }
+  .tb-am { background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
+  .tb-pm { background: #faf5ff; color: #6b46c1; border: 1px solid #d6bcfa; }
+  .tb-exact { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+  .route-item { display: flex; flex-wrap: wrap; align-items: flex-start; padding: 10px; border-bottom: 1px solid #e2e8f0; gap: 10px; }
+
+  .route-time-col { min-width: 178px; font-size: 0.84rem; padding: 8px 10px; border-radius: 6px; }
+  .job-box-delivery { background: #ebf8ff; border: 1px solid #90cdf4; border-left: 6px solid #2b6cb0; }
+  .job-box-return   { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid #c53030; }
+  .job-box-both     { background: #f0fff4; border: 1px solid #9ae6b4; border-left: 6px solid #2f855a; }
+  .job-box-base     { background: #fefcbf; border: 1px solid #f6e05e; border-left: 6px solid #d69e2e; }
+
+  .job-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.76rem; font-weight: bold; color: #fff; margin-left: 4px; }
+  .tag-delivery { background: #2b6cb0; }
+  .tag-return   { background: #c53030; }
+  .tag-both     { background: #2f855a; }
+  .tag-base     { background: #d69e2e; color: #1a202c; }
+
+  .route-detail-col { flex: 1; min-width: 240px; }
+  .route-edit-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.82rem; background: #f7fafc; padding: 5px 8px; border-radius: 5px; }
+  .private-meta { font-size: 0.82rem; color: #553c9a; background: #faf5ff; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 3px; border: 1px solid #e9d8fd; }
+  .same-addr-row { background: #fffaf0; }
+  .late-alert { color: #c53030; font-weight: bold; font-size: 0.8rem; margin-top: 3px; }
+  .wait-info { color: #975a16; font-weight: bold; font-size: 0.8rem; margin-top: 3px; }
+  .warn-box { background: #fffaf0; border: 1px solid #ed8936; color: #9c4221; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 0.88rem; display: none; }
+  .map-link { font-size: 0.78rem; color: #2b6cb0; text-decoration: none; margin-left: 6px; border: 1px solid #bee3f8; padding: 1px 6px; border-radius: 4px; background: #fff; }
+  .gmap-box { background: #fffaf0; border: 1px solid #fbd38d; border-radius: 6px; padding: 10px; margin-top: 10px; }
+  .summary-bar { background: #ebf8ff; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; font-weight: bold; color: #2c5282; font-size: 0.9rem; }
+  .lock-bar { background: #fefcbf; border: 1px solid #f6e05e; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; font-size: 0.84rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+
+  .map-layout { display: grid; grid-template-columns: 1fr 330px; gap: 12px; }
+  @media (max-width: 860px) { .map-layout { grid-template-columns: 1fr; } }
+  #mapContainer { width: 100%; height: 520px; border-radius: 8px; border: 1px solid #cbd5e0; background: #e2e8f0; }
+  #fallbackCanvas { width: 100%; height: 520px; border-radius: 8px; border: 1px solid #cbd5e0; background: #f8fafc; display: none; }
+  .map-side-list { max-height: 520px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; background: #fff; }
+  .map-step-card { padding: 8px; border-bottom: 1px solid #edf2f7; font-size: 0.84rem; cursor: pointer; border-radius: 4px; }
+  .map-step-card:hover { background: #ebf8ff; }
+  .custom-pin { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-weight: bold; font-size: 13px; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+
+  .modal-bg { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; padding: 16px; }
+  .modal-box { background: #fff; max-width: 740px; width: 100%; max-height: 88vh; overflow-y: auto; border-radius: 10px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
+  .modal-box h2 { margin-top: 0; color: #1a365d; border-bottom: 2px solid #ebf8ff; padding-bottom: 8px; }
+  .modal-box h3 { color: #2b6cb0; margin: 14px 0 6px; font-size: 1rem; }
+  .modal-box p, .modal-box li { font-size: 0.9rem; line-height: 1.55; }
+  .custom-list-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #edf2f7; font-size: 0.85rem; }
+
+  @media print { .no-print { display: none !important; } body { background: #fff; } .card { box-shadow: none; border: 1px solid #ccc; } }
+</style>
+</head>
+<body>
+
+<div class="top-header no-print">
+  <h1>🚚 配送ルート＆時刻表作成（拠点：八王子市堀之内2-24-1）</h1>
+</div>
+
+<div class="main-nav no-print">
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tabCreateBtn" onclick="switchView('create')">📝 ルート作成・調整</button>
+    <button class="nav-tab" id="tabMapBtn" onclick="switchView('map')">🗺️ ルートを確認（マップ表示）</button>
+  </div>
+  <div class="nav-right">
+    <button class="btn-add-client" onclick="openClientModal()">➕ 得意先を新規登録</button>
+    <button class="btn-manual" onclick="openManual()">📖 取扱説明書</button>
+  </div>
+</div>
+
+<div id="viewCreate">
+  <div class="card no-print">
+    <div class="row">
+      <input type="text" id="quickNos" style="flex:1;min-width:190px;" placeholder="得意先No.を一括入力（例: 17 204 157 90）">
+      <label style="font-size:0.86rem;font-weight:bold;">種別:
+        <select id="defaultJobType">
+          <option value="delivery">納品</option>
+          <option value="return">返却</option>
+          <option value="both">納品と返却</option>
+        </select>
+      </label>
+      <button class="btn-primary" onclick="applyQuickNos()">No.を一括チェック</button>
+      <button class="btn-yellow" onclick="addReturnBase()">＋ 帰社（2便積込）を追加</button>
+      <button class="btn-red" onclick="clearAll()">全解除</button>
+    </div>
+
+    <div class="row" style="margin-bottom:6px;">
+      <input type="text" id="searchBox" style="flex:1;" placeholder="🔍 得意先名・住所・No.で絞り込み..." oninput="renderSelector()">
+    </div>
+
+    <div class="area-tabs" id="areaTabs"></div>
+    <div class="list-box" id="selectorList"></div>
+
+    <div class="private-panel">
+      <div style="font-weight:bold; font-size:0.92rem; color:#44337a; margin-bottom:8px;">🏠 個人宅（臨時配送先）を追加する</div>
+      <div class="private-grid">
+        <label>個人宅名（必須）
+          <input type="text" id="pName" placeholder="例: 山田 太郎 様宅">
+        </label>
+        <label>郵便番号（7桁で住所自動入力）
+          <div style="display:flex;gap:4px;">
+            <input type="text" id="pZip" placeholder="例: 1910062" maxlength="8" oninput="onZipInput('pZip','pAddr','zipMsg')" style="flex:1;">
+            <button type="button" class="btn-mini" onclick="lookupZip('pZip','pAddr','zipMsg')">検索</button>
+          </div>
+          <span id="zipMsg" style="font-size:0.74rem;color:#6b46c1;font-weight:normal;"></span>
+        </label>
+        <label>住所（必須・番地まで入力）
+          <input type="text" id="pAddr" placeholder="郵便番号入力後に番地を追記">
+        </label>
+        <label>種別
+          <select id="pJobType">
+            <option value="delivery">納品</option>
+            <option value="return">返却</option>
+            <option value="both">納品と返却</option>
+          </select>
+        </label>
+        <label>時間指定
+          <div style="display:flex;gap:4px;">
+            <select id="pTimeType" style="flex:1;" onchange="document.getElementById('pExactTime').style.display=(this.value==='exact'?'inline-block':'none')">
+              <option value="none">指定なし</option>
+              <option value="am">午前 (~12:00)</option>
+              <option value="pm">午後 (12:00~)</option>
+              <option value="exact">時間指定</option>
+            </select>
+            <input type="time" id="pExactTime" value="10:00" style="display:none;">
+          </div>
+        </label>
+        <label>作業時間（分）
+          <input type="number" id="pStay" value="10" min="0" max="180" style="width:100%;">
+        </label>
+        <label>依頼得意先名
+          <input type="text" id="pClient" list="clientDatalist" placeholder="例: ＳＯＭＰＯケア府中">
+        </label>
+        <label>担当者
+          <input type="text" id="pStaff" list="staffDatalist" placeholder="例: 田中 文裕">
+        </label>
+        <label>エリア目安（通常は自動）
+          <select id="pArea">
+            <option value="auto">住所から自動判定</option>
+            <option value="A">A: 地元・堀之内</option><option value="B">B: 八王子南・東</option>
+            <option value="C">C: 八王子中心・北</option><option value="D">D: 八王子西</option>
+            <option value="E">E: 多摩・稲城</option><option value="F">F: 日野</option>
+            <option value="G">G: 立川・国立・西東京</option><option value="H">H: 府中</option>
+            <option value="I">I: 調布・狛江</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn-purple" id="addPrivateBtn" onclick="addPrivateHouse()">＋ 個人宅をルートに追加</button>
+    </div>
+  </div>
+
+  <datalist id="clientDatalist"></datalist>
+  <datalist id="staffDatalist">
+    <option value="田中 文裕"><option value="田邊 賢大"><option value="古澤 多嘉史">
+    <option value="片山 滋正"><option value="宮澤 潤"><option value="小渕 達也">
+  </datalist>
+
+  <div class="warn-box" id="warnBox"></div>
+
+  <div class="card">
+    <h2 style="font-size:1.12rem; margin:0 0 10px;">📍 本日の推奨ルート＆予定時刻表（訪問先：<span id="countDisp">0</span>件）</h2>
+
+    <div class="setting-box no-print">
+      <label>🕘 出発時刻：<input type="time" id="startTime" value="09:00" onchange="recalcAndRender()"></label>
+      <label>🛠️ 基本作業時間：<input type="number" id="defaultStayMin" value="10" min="0" max="180" onchange="onDefaultStayChange()"> 分/件</label>
+      <label>🚗 走行ペース：
+        <select id="speedKmh" onchange="recalcAndRender()">
+          <option value="28">空いている (約28km/h)</option>
+          <option value="24" selected>標準・日中 (約24km/h)</option>
+          <option value="18">混雑・雨天 (約18km/h)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="no-print" style="margin-bottom:10px;">
+      <div class="row" style="margin-bottom:4px;">
+        <label style="font-weight:bold;font-size:0.9rem;"><input type="radio" name="dir" value="ccw" checked onchange="runAutoOptimize()"> 反時計回り【基本】（東・調布→府中→多摩北→日野→八王子→地元A）</label>
+        <label style="font-weight:bold;font-size:0.9rem;"><input type="radio" name="dir" value="cw" onchange="runAutoOptimize()"> 時計回り【八王子先回り】（八王子南→西→北→日野→多摩北→府中→調布→多摩→地元A）</label>
+      </div>
+      <div class="row" style="margin-top:6px;">
+        <button class="btn-primary" onclick="runAutoOptimize()">🔄 自動最適順に並べ直す</button>
+        <button class="btn-green" onclick="copyText()">📋 指示用テキストをコピー</button>
+        <button class="btn-sub" onclick="window.print()">🖨️ 印刷する</button>
+        <button class="btn-primary" style="background:#dd6b20;" onclick="switchView('map')">🗺️ マップでルート確認へ</button>
+      </div>
+      <div class="gmap-box" id="gmapBox" style="display:none;">
+        <div style="font-weight:bold; font-size:0.88rem; margin-bottom:4px; color:#9c4221;">🗺️ Googleマップアプリでナビを開く（帰社ごと／最大9件ごとに自動分割）</div>
+        <div id="gmapButtons"></div>
+      </div>
+    </div>
+
+    <div class="lock-bar no-print" id="lockBar" style="display:none;">
+      <span>🔒 <strong>手動調整モード中</strong>（↑↓での入れ替えや「帰社」の順番を保持しています。出発時間や作業時間を変更しても順番は崩れません）</span>
+      <button class="btn-mini" onclick="runAutoOptimize()">🔄 自動最適順に戻す</button>
+    </div>
+
+    <div class="summary-bar" id="summaryBar" style="display:none;"></div>
+    <div id="routeResult">上から配送先をチェックするか、個人宅を追加してください。</div>
+  </div>
+</div>
+
+<div id="viewMap" style="display:none;">
+  <div class="card">
+    <div class="row" style="justify-content:space-between; margin-bottom:10px;">
+      <div>
+        <strong style="font-size:1.1rem; color:#1a365d;">🗺️ 配送ルート目視確認マップ（国土地理院地図）</strong>
+        <span style="font-size:0.84rem; color:#4a5568; margin-left:8px;">（青:納品 / 赤:返却 / 緑:納品と返却 / 黄:拠点・帰社）</span>
+      </div>
+      <button class="btn-sub" onclick="switchView('create')">← ルート編集画面に戻る</button>
+    </div>
+
+    <div class="summary-bar" id="mapSummaryBar" style="display:none;"></div>
+
+    <div class="map-layout">
+      <div>
+        <div id="mapContainer"></div>
+        <canvas id="fallbackCanvas"></canvas>
+      </div>
+      <div class="map-side-list" id="mapSideList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 新規得意先登録モーダル ==================== -->
+<div class="modal-bg" id="clientModal" onclick="if(event.target===this)closeClientModal()">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>➕ 新規得意先の登録・管理</h2>
+      <button class="btn-red" onclick="closeClientModal()">× 閉じる</button>
+    </div>
+    <p style="color:#4a5568;font-size:0.86rem;">ここで登録した得意先はブラウザに自動保存され、次回開いたときも得意先リストや一括No.入力から使えます。</p>
+
+    <div style="background:#f0fff4;border:1px solid #9ae6b4;padding:12px;border-radius:8px;margin-bottom:14px;">
+      <div class="form-grid">
+        <label>得意先No.（必須・数値）
+          <input type="number" id="cNo" style="width:100%;" placeholder="例: 308">
+        </label>
+        <label>得意先名称（必須）
+          <input type="text" id="cName" placeholder="例: 〇〇ケアセンター">
+        </label>
+        <label>郵便番号（7桁で自動入力）
+          <div style="display:flex;gap:4px;">
+            <input type="text" id="cZip" placeholder="例: 1920355" maxlength="8" oninput="onZipInput('cZip','cAddr','cZipMsg')" style="flex:1;">
+            <button type="button" class="btn-mini" onclick="lookupZip('cZip','cAddr','cZipMsg')">検索</button>
+          </div>
+          <span id="cZipMsg" style="font-size:0.74rem;color:#2f855a;font-weight:normal;"></span>
+        </label>
+        <label>住所（必須・番地や建物名まで）
+          <input type="text" id="cAddr" placeholder="例: 東京都八王子市堀之内1-2-3">
+        </label>
+        <label>エリア（通常は自動判定）
+          <select id="cArea">
+            <option value="auto">住所から自動判定</option>
+            <option value="A">A: 地元・堀之内</option><option value="B">B: 八王子南・東</option>
+            <option value="C">C: 八王子中心・北</option><option value="D">D: 八王子西</option>
+            <option value="E">E: 多摩・稲城</option><option value="F">F: 日野</option>
+            <option value="G">G: 立川・国立・西東京</option><option value="H">H: 府中</option>
+            <option value="I">I: 調布・狛江</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn-green" id="saveClientBtn" onclick="saveNewClient()">✅ この得意先を登録する</button>
+    </div>
+
+    <h3>登録済みの新規得意先（<span id="customCount">0</span>件）</h3>
+    <div id="customClientList" style="border:1px solid #e2e8f0;border-radius:6px;max-height:180px;overflow-y:auto;margin-bottom:14px;"></div>
+
+    <h3>別のPC・スマホと新規得意先データを共有する</h3>
+    <p style="font-size:0.82rem;color:#4a5568;margin:4px 0 8px;">「書き出し」でコピーした文字を、他のPCの「読み込み」欄に貼ると同じ得意先リストを同期できます。</p>
+    <div class="row">
+      <button class="btn-primary" onclick="exportCustomClients()">📤 追加データをコピー（書き出し）</button>
+      <button class="btn-sub" onclick="toggleImportBox()">📥 他PCから取り込む（読み込み）</button>
+    </div>
+    <div id="importBox" style="display:none;margin-top:8px;">
+      <textarea id="importText" rows="3" style="width:100%;" placeholder="書き出したテキストをここに貼り付けてください"></textarea>
+      <button class="btn-green" style="margin-top:6px;" onclick="importCustomClients()">取り込みを実行する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 取扱説明書モーダル ==================== -->
+<div class="modal-bg" id="manualModal" onclick="if(event.target===this)closeManual()">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>📖 配送ルート作成ツール 取扱説明書</h2>
+      <button class="btn-red" onclick="closeManual()">× 閉じる</button>
+    </div>
+
+    <h3>1. 基本の使い方（4ステップ）</h3>
+    <ol>
+      <li><strong>配送先を選ぶ：</strong>リストからチェックを入れるか、上の入力欄に「<code>17 204 157</code>」のようにNo.をスペース区切りで入力して「No.を一括チェック」を押します。</li>
+      <li><strong>時間・種別を設定する：</strong>必要に応じて各行で「納品／返却／納品と返却」や「午前／午後／時間指定」を選びます。</li>
+      <li><strong>下段で時刻・作業時間・順番を調整する：</strong>出発時刻（初期値9:00）、走行ペース、各所の作業時間を調整します。順番を変えたい時は「↑」「↓」ボタンで入れ替えます。</li>
+      <li><strong>確認して出発！：</strong>最上部の<strong>「🗺️ ルートを確認」タブ</strong>で地図上のルートを目視チェックし、「指示用テキストをコピー」または「Googleマップでナビを開く」を使って出発します。</li>
+    </ol>
+
+    <h3>2. 個人宅（臨時配送先）の追加方法</h3>
+    <ul>
+      <li>「🏠 個人宅を追加する」欄で<strong>郵便番号（7桁）</strong>を入力すると、市・町名まで自動で住所が入ります。後ろに番地を書き足してください。</li>
+      <li>「依頼得意先名」や「担当者」は文字を打つと候補が出てきます。</li>
+    </ul>
+
+    <h3>3. 新規得意先の登録方法</h3>
+    <ul>
+      <li>右上の<strong>「➕ 得意先を新規登録」</strong>ボタンから、新しい得意先を追加できます（ブラウザに自動保存されます）。</li>
+      <li>別のパソコンに最新リストを移したい場合は、同画面下の「書き出し／読み込み」機能を使ってください。</li>
+    </ul>
+
+    <h3>4. 色分けと「帰社（2便積込）」について</h3>
+    <ul>
+      <li><span style="background:#2b6cb0;color:#fff;padding:1px 6px;border-radius:3px;">青色</span>＝<strong>納品</strong> ／ <span style="background:#c53030;color:#fff;padding:1px 6px;border-radius:3px;">赤色</span>＝<strong>返却</strong> ／ <span style="background:#2f855a;color:#fff;padding:1px 6px;border-radius:3px;">緑色</span>＝<strong>納品と返却</strong> ／ <span style="background:#d69e2e;color:#1a202c;padding:1px 6px;border-radius:3px;">黄色</span>＝<strong>帰社（拠点）</strong></li>
+      <li>荷台がいっぱいで1度営業所に戻る（2便にする）場合は<strong>「＋ 帰社（2便積込）を追加」</strong>を押し、<code>↑</code> <code>↓</code> ボタンで戻りたい位置へ移動してください。</li>
+    </ul>
+
+    <h3>5. 時間指定の計算ルール</h3>
+    <ul>
+      <li><strong>時間指定（例：10:00指定）</strong>がある場合、早く到着しても作業は始められないため、指定時刻まで待機して<strong>「指定時刻＋作業時間」</strong>で出発時刻を計算します。</li>
+      <li>どう回っても遅れてしまう場合は<strong>「⚠️ 約〇分遅れ見込み」</strong>と赤字で警告が出ますので、出発時間を早めるか順番を見直してください。</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ORIGIN = { no: 0, area: "拠点", name: "多摩営業所（帰社・積込）", addr: "東京都八王子市堀之内2-24-1", lat: 35.6305, lng: 139.4035 };
+const STORAGE_KEY = "tama_route_custom_clients_v1";
+
+const baseMasterData = [
+  {no:43, area:"E", name:"ぬくもり工房", addr:"東京都多摩市鶴牧2-21-13 ベアタウン多摩A101", lat:35.621, lng:139.420},
+  {no:31, area:"E", name:"ヘルスレント多摩東ステーション", addr:"東京都多摩市落合1-21-10", lat:35.623, lng:139.428},
+  {no:9,  area:"E", name:"西東京メディカル株式会社", addr:"東京都多摩市一ノ宮4-40-3 聖蹟桜ヶ丘ガーデンハウス1F", lat:35.650, lng:139.442},
+  {no:166,area:"E", name:"介護ショップすまいふる", addr:"東京都多摩市関戸6-4-12 第一諏訪ビル1階", lat:35.649, lng:139.450},
+  {no:292,area:"E", name:"多摩永山ガーデン", addr:"東京都多摩市永山2-6 多摩永山ガーデン", lat:35.630, lng:139.448},
+  {no:270,area:"E", name:"駒沢女子大学", addr:"東京都稲城市坂浜238番地", lat:35.622, lng:139.485},
+  {no:220,area:"E", name:"そんぽの家稲城矢野口", addr:"東京都稲城市矢野口1674-1", lat:35.643, lng:139.518},
+  {no:203,area:"I", name:"有料老人ホーム 調布ガーデン", addr:"東京都調布市染地2-8-3 そめちクリニック2F", lat:35.642, lng:139.540},
+  {no:216,area:"I", name:"そんぽの家調布多摩川", addr:"東京都調布市多摩川3-17-1", lat:35.648, lng:139.532},
+  {no:265,area:"I", name:"ケイホスピア多摩川営業所", addr:"東京都狛江市和泉本町4-9-5", lat:35.635, lng:139.578},
+  {no:90, area:"I", name:"株式会社きざらん", addr:"東京都狛江市東野川4-17-3 グランフォーム喜多見103", lat:35.645, lng:139.584},
+  {no:161,area:"I", name:"ＳＯＭＰＯケアラヴィーレ仙川", addr:"東京都調布市仙川町3-2-9", lat:35.662, lng:139.585},
+  {no:132,area:"I", name:"アースサポート調布", addr:"東京都調布市東つつじヶ丘1丁目5番2号", lat:35.657, lng:139.575},
+  {no:283,area:"I", name:"木下の介護 グループホーム調布", addr:"東京都調布市柴崎2-31-1", lat:35.654, lng:139.566},
+  {no:80, area:"I", name:"ケアウェル調布店", addr:"東京都調布市深大寺南町5-46-4", lat:35.664, lng:139.555},
+  {no:195,area:"I", name:"グッドタイムホーム・調布", addr:"東京都調布市小島町2-3-6", lat:35.653, lng:139.544},
+  {no:241,area:"I", name:"フローレンスケア調布", addr:"東京都調布市小島町1-16-3", lat:35.654, lng:139.542},
+  {no:157,area:"I", name:"ＳＯＭＰＯケアラヴィーレ調布", addr:"東京都調布市上石原1-8-8", lat:35.656, lng:139.528},
+  {no:67, area:"I", name:"カンパニュラ", addr:"東京都調布市上石原3-56-16", lat:35.654, lng:139.525},
+  {no:201,area:"H", name:"グッドタイムナーシングホーム・府中弐番館", addr:"東京都府中市是政1-17-5", lat:35.654, lng:139.490},
+  {no:200,area:"H", name:"グッドタイムホーム・府中(楽坊)", addr:"東京都府中市矢崎町4-10-2", group:"府中矢崎4-10-2", lat:35.658, lng:139.476},
+  {no:214,area:"H", name:"グッドタイムホーム・府中(創生)", addr:"東京都府中市矢崎町4-10-2", group:"府中矢崎4-10-2", lat:35.658, lng:139.476},
+  {no:8,  area:"H", name:"有限会社ティー・オー・ピー 府中店", addr:"東京都府中市矢崎町4-1 大東京綜合卸売センター456", lat:35.659, lng:139.474},
+  {no:242,area:"H", name:"フローレンスケア聖蹟桜ヶ丘", addr:"東京都府中市日新町5-53-1", lat:35.663, lng:139.455},
+  {no:190,area:"H", name:"（株）総合建設ケー・ツー工房", addr:"東京都府中市西府町4-6-20", lat:35.672, lng:139.459},
+  {no:297,area:"H", name:"はなことばプラス府中", addr:"東京都府中市分梅町3-54-5", lat:35.668, lng:139.470},
+  {no:305,area:"H", name:"ダーウィン株式会社", addr:"東京都府中市美好町3-4-2 分倍河原フラッツ302", lat:35.672, lng:139.475},
+  {no:191,area:"H", name:"株式会社フロンティア 府中営業所", addr:"東京都府中市片町3-33-2", lat:35.670, lng:139.473},
+  {no:76, area:"H", name:"ＳＯＭＰＯケア府中 福祉用具", addr:"東京都府中市宮西町2-16-2 府中第一生命ビルディング2階", lat:35.671, lng:139.478},
+  {no:159,area:"H", name:"ＳＯＭＰＯケアラヴィーレ府中", addr:"東京都府中市宮町3-10-1", lat:35.671, lng:139.481},
+  {no:282,area:"H", name:"リアンレーヴ府中", addr:"東京都府中市府中町2丁目-18-1", lat:35.674, lng:139.482},
+  {no:236,area:"H", name:"パナソニック エイジフリーショップ府中", addr:"東京都府中市小柳町2-29-2 シティコア内海1階", lat:35.660, lng:139.500},
+  {no:271,area:"H", name:"株式会社スリーディメンション(府中)", addr:"東京都府中市清水が丘3-29-4 第2糖谷コーポ102", lat:35.668, lng:139.502},
+  {no:204,area:"H", name:"有料老人ホーム 府中若松ガーデン", addr:"東京都府中市若松町4-22-5", lat:35.674, lng:139.503},
+  {no:261,area:"H", name:"はなまるホーム紅葉丘", addr:"東京都府中市紅葉丘1-10-88", lat:35.678, lng:139.512},
+  {no:150,area:"G", name:"有限会社アシスト・ワン", addr:"東京都小金井市東町5-10-6", lat:35.695, lng:139.523},
+  {no:46, area:"G", name:"日本ウイール・チェアー（多摩）", addr:"東京都西東京市芝久保町2-22-31", lat:35.728, lng:139.525},
+  {no:94, area:"G", name:"株式会社フロンティア 西東京営業所", addr:"東京都西東京市保谷町3-14-20", lat:35.735, lng:139.555},
+  {no:26, area:"G", name:"株式会社 スリーディメンション(国立)", addr:"東京都国立市富士見台2-2-5", lat:35.678, lng:139.442},
+  {no:162,area:"G", name:"ＳＯＭＰＯケアラヴィーレ国立矢川", addr:"東京都国立市富士見台3-35-3", lat:35.677, lng:139.439},
+  {no:266,area:"G", name:"ファミリー・ホスピス国立ハウス", addr:"東京都国立市谷保6068-1", lat:35.677, lng:139.450},
+  {no:74, area:"G", name:"イノベーションオブメディカルサービス国立営", addr:"東京都国立市泉3丁目26-17", lat:35.672, lng:139.442},
+  {no:217,area:"G", name:"そんぽの家国立南", addr:"東京都国立市青柳1-21-14", lat:35.674, lng:139.433},
+  {no:143,area:"G", name:"ソラスト品川本社キャリアセンター首都圏事業", addr:"東京都立川市曙町2-13-3 立川三菱ビルディング8F", lat:35.699, lng:139.415},
+  {no:117,area:"G", name:"ケアーメディカル", addr:"東京都立川市柴崎町2-17-18", lat:35.695, lng:139.410},
+  {no:293,area:"G", name:"日本エンゼル（多摩口）", addr:"東京都昭島市郷地町3-7-15 中村ビル1階", lat:35.702, lng:139.385},
+  {no:279,area:"F", name:"ライフコミュニーン日野", addr:"東京都日野市万願寺2-34-7", lat:35.674, lng:139.423},
+  {no:27, area:"F", name:"多摩ケア・サポート有限会社", addr:"東京都日野市栄町4-27-8", lat:35.682, lng:139.398},
+  {no:289,area:"F", name:"シルバービレッジ日野", addr:"東京都日野市日野1458", lat:35.676, lng:139.394},
+  {no:290,area:"F", name:"シルバービレッジ日野東館", addr:"東京都日野市日野1026-1", lat:35.675, lng:139.397},
+  {no:260,area:"F", name:"多摩療護園", addr:"東京都日野市程久保872-1", lat:35.647, lng:139.406},
+  {no:299,area:"F", name:"特別養護老人ホームあすなろ", addr:"東京都日野市百草1042番17", lat:35.653, lng:139.426},
+  {no:97, area:"F", name:"株式会社アール・ユー", addr:"東京都日野市平山6-21-7", lat:35.648, lng:139.383},
+  {no:122,area:"F", name:"ひまわり館多摩営業所", addr:"東京都日野市多摩平1-14-100", lat:35.663, lng:139.383},
+  {no:291,area:"F", name:"特別養護老人ホーム花子", addr:"東京都日野市多摩平3-1-11", lat:35.665, lng:139.380},
+  {no:11, area:"F", name:"松下電工 エイジフリー介護チェーン日野", addr:"東京都日野市多摩平3-2-13", group:"日野多摩平3-2-13", lat:35.666, lng:139.380},
+  {no:237,area:"F", name:"パナソニック エイジフリーショップ日野", addr:"東京都日野市多摩平3丁目2番13号", group:"日野多摩平3-2-13", lat:35.666, lng:139.380},
+  {no:15, area:"F", name:"ふれあい介護ショップ りんりん", addr:"東京都日野市多摩平4-1-18", group:"日野多摩平4-1-18", lat:35.667, lng:139.378},
+  {no:243,area:"F", name:"りんりん【風のガーデンロ】", addr:"東京都日野市多摩平4-1-18", group:"日野多摩平4-1-18", lat:35.667, lng:139.378},
+  {no:121,area:"F", name:"株式会社フロンティア 八王子営業所", addr:"東京都八王子市高倉町4-11", lat:35.665, lng:139.365},
+  {no:218,area:"C", name:"そんぽの家八王子小宮", addr:"東京都八王子市小宮町758-3", lat:35.682, lng:139.373},
+  {no:51, area:"C", name:"株式会社 ジーピー", addr:"東京都八王子市石川町1633", lat:35.673, lng:139.362},
+  {no:196,area:"C", name:"あしすと多摩", addr:"東京都八王子市大和田町2-3-13 福ビル 3階", lat:35.663, lng:139.351},
+  {no:13, area:"C", name:"株式会社 ケイアイ", addr:"東京都八王子市大和田町3-10-12", lat:35.663, lng:139.348},
+  {no:79, area:"C", name:"ヘルスレント八王子ステーション", addr:"東京都八王子市大和田町5-16-1-2階", lat:35.662, lng:139.346},
+  {no:111,area:"C", name:"ウェルサポート", addr:"東京都八王子市横山町3-6 JEビル5F", lat:35.658, lng:139.338},
+  {no:284,area:"C", name:"木下の介護 グループホーム八王子", addr:"東京都八王子市元横山町1-20-9", lat:35.661, lng:139.342},
+  {no:286,area:"C", name:"株式会社シルバーレッジ", addr:"東京都八王子市暁町1-47-1", group:"八王子暁1-47-1", lat:35.667, lng:139.333},
+  {no:287,area:"C", name:"シルバービレッジ八王子", addr:"東京都八王子市暁町1-47-1", group:"八王子暁1-47-1", lat:35.667, lng:139.333},
+  {no:151,area:"C", name:"有限会社ケアスタッフ", addr:"東京都八王子市中野上町1-8-22 中野田口ビル2階", lat:35.665, lng:139.327},
+  {no:219,area:"C", name:"そんぽの家八王子元本郷", addr:"東京都八王子市元本郷町2-1-12", lat:35.660, lng:139.324},
+  {no:238,area:"C", name:"パナソニック エイジフリーショップ八王子", addr:"東京都八王子市元本郷町2-9-22", lat:35.660, lng:139.322},
+  {no:20, area:"C", name:"ミニロクメイト事業部", addr:"東京都八王子市元本郷町3-11-17", group:"八王子元本郷3-11-17", lat:35.661, lng:139.319},
+  {no:134,area:"C", name:"ミニロクメイト事業部（販売）", addr:"東京都八王子市元本郷町3-11-17", group:"八王子元本郷3-11-17", lat:35.661, lng:139.319},
+  {no:92, area:"C", name:"アビリティーズ・ケアネット（株）八王子営", addr:"東京都八王子市久保山町1-9-154", lat:35.692, lng:139.342},
+  {no:288,area:"C", name:"シルバービレッジ八王子西", addr:"東京都八王子市宮下町500", lat:35.684, lng:139.308},
+  {no:285,area:"C", name:"特別養護老人ホームみやま大樹の苑", addr:"東京都八王子市美山町1463番地", lat:35.693, lng:139.255},
+  {no:58, area:"D", name:"こもれび", addr:"東京都八王子市元八王子町3-2872-1 城山病院内", lat:35.661, lng:139.275},
+  {no:295,area:"D", name:"株式会社ベスト・ケアー八王子", addr:"東京都八王子市元八王子町1-488-3", group:"元八王子1-488-3", lat:35.662, lng:139.288},
+  {no:307,area:"D", name:"株式会社ベスト・ケアー八王子（施設）", addr:"東京都八王子市元八王子町1-488-3", group:"元八王子1-488-3", lat:35.662, lng:139.288},
+  {no:5,  area:"D", name:"有限会社 さつきメディカル", addr:"東京都八王子市横川町745", lat:35.663, lng:139.302},
+  {no:275,area:"D", name:"福祉用具サービスルースト", addr:"東京都八王子市長房町1432-1 峰尾ハイツ103", lat:35.660, lng:139.295},
+  {no:1,  area:"D", name:"株式会社 クワバラ", addr:"東京都八王子市長房町492番地", lat:35.658, lng:139.300},
+  {no:12, area:"D", name:"シルバーサポート・八王子", addr:"東京都八王子市長房町405-1", lat:35.657, lng:139.301},
+  {no:19, area:"D", name:"日本オートランニングシステム株式会社", addr:"東京都八王子市並木町24-8 コスモ八王子並木町102", lat:35.653, lng:139.305},
+  {no:23, area:"B", name:"有限会社 十字ケアステーション", addr:"東京都八王子市めじろ台2丁目1番1 京王めじろ台マンションA棟1階", lat:35.643, lng:139.308},
+  {no:262,area:"B", name:"はなまるホーム八王子山田町", addr:"東京都八王子市山田町1606番12", lat:35.645, lng:139.318},
+  {no:189,area:"B", name:"有限会社宮博工務店", addr:"東京都八王子市小比企町1130-3", lat:35.646, lng:139.326},
+  {no:276,area:"B", name:"特別養護老人ホーム福寿園みなみ野", addr:"東京都八王子市みなみ野6丁目21番1号", lat:35.629, lng:139.328},
+  {no:22, area:"B", name:"株式会社 シルバー", addr:"東京都八王子市西片倉1-9-2", lat:35.638, lng:139.333},
+  {no:158,area:"B", name:"ＳＯＭＰＯケアラヴィーレ八王子片倉", addr:"東京都八王子市片倉町722-9", lat:35.644, lng:139.340},
+  {no:239,area:"B", name:"ファミリー・ホスピス片倉ハウス", addr:"東京都八王子市片倉町451-10", lat:35.645, lng:139.342},
+  {no:280,area:"B", name:"リアンレーヴ八王子", addr:"東京都八王子市長沼町1246-2", lat:35.644, lng:139.366},
+  {no:178,area:"B", name:"ケアショップわかば", addr:"東京都八王子市北野町557-19 メゾン楠束102", lat:35.645, lng:139.354},
+  {no:298,area:"B", name:"コスモス医工", addr:"東京都八王子市北野町525-31", lat:35.645, lng:139.356},
+  {no:14, area:"A", name:"福祉用具貸与事業所 おおつか", addr:"東京都八王子市大塚796-1", lat:35.637, lng:139.405},
+  {no:17, area:"A", name:"株式会社 アイム", addr:"東京都八王子市堀之内3-4-12 メゾンセレナイト601", lat:35.631, lng:139.402},
+  {no:277,area:"A", name:"ファミリー・ホスピス堀之内ハウス", addr:"東京都八王子市堀之内3-30-9 ファミリー・ホスピス堀之内ハウス", lat:35.632, lng:139.400},
+  {no:301,area:"A", name:"メディケアセンター八王子", addr:"東京都八王子市松木9-1-102", lat:35.626, lng:139.392},
+  {no:160,area:"A", name:"ＳＯＭＰＯケアラヴィーレ堀之内", addr:"東京都八王子市別所一丁目6番5号", lat:35.622, lng:139.394},
+  {no:303,area:"A", name:"介護ショップ多摩南", addr:"東京都八王子市上柚木1178", lat:35.616, lng:139.378},
+  {no:171,area:"A", name:"株式会社ぷりま", addr:"東京都八王子市鑓水2-165-1", lat:35.613, lng:139.366}
+];
+
+const areaNames = {
+  "ALL":"すべて", "A":"A:地元堀之内", "B":"B:八王子南東", "C":"C:八王子北中心",
+  "D":"D:八王子西", "E":"E:多摩・稲城", "F":"F:日野", "G":"G:立川・国立・西東京",
+  "H":"H:府中", "I":"I:調布・狛江"
+};
+const areaCenterFallback = {
+  "A": { area:"A", lat:35.627, lng:139.395 }, "B": { area:"B", lat:35.640, lng:139.335 },
+  "C": { area:"C", lat:35.666, lng:139.332 }, "D": { area:"D", lat:35.660, lng:139.295 },
+  "E": { area:"E", lat:35.635, lng:139.455 }, "F": { area:"F", lat:35.668, lng:139.395 },
+  "G": { area:"G", lat:35.690, lng:139.440 }, "H": { area:"H", lat:35.669, lng:139.478 },
+  "I": { area:"I", lat:35.652, lng:139.555 }
+};
+const jobLabels = { delivery: "納品", return: "返却", both: "納品と返却", base: "帰社" };
+const jobColors = { delivery: "#2b6cb0", return: "#c53030", both: "#2f855a", base: "#d69e2e" };
+
+const townGeoList = [];
+baseMasterData.forEach(d => {
+  const m = d.addr.match(/^東京都([^\d０-９一二三四五六七八九十]+?)[\d０-９一二三四五六七八九十]/);
+  if (m) townGeoList.push({ town: m[1], area: d.area, lat: d.lat, lng: d.lng });
+});
+
+function guessLocation(addr, manualArea) {
+  if (manualArea && manualArea !== "auto") return areaCenterFallback[manualArea] || areaCenterFallback["A"];
+  const norm = addr.replace(/\s+/g, "");
+  for (const t of townGeoList) { if (norm.includes(t.town)) return { area: t.area, lat: t.lat, lng: t.lng }; }
+  if (norm.includes("堀之内") || norm.includes("松木") || norm.includes("別所") || norm.includes("大塚") || norm.includes("上柚木") || norm.includes("鑓水") || norm.includes("南大沢")) return areaCenterFallback["A"];
+  if (norm.includes("めじろ台") || norm.includes("山田町") || norm.includes("小比企") || norm.includes("みなみ野") || norm.includes("片倉") || norm.includes("長沼") || norm.includes("北野")) return areaCenterFallback["B"];
+  if (norm.includes("元八王子") || norm.includes("横川") || norm.includes("長房") || norm.includes("並木") || norm.includes("高尾") || norm.includes("狭間") || norm.includes("散田")) return areaCenterFallback["D"];
+  if (norm.includes("八王子")) return areaCenterFallback["C"];
+  if (norm.includes("多摩市") || norm.includes("稲城")) return areaCenterFallback["E"];
+  if (norm.includes("日野")) return areaCenterFallback["F"];
+  if (norm.includes("立川") || norm.includes("国立") || norm.includes("昭島") || norm.includes("小金井") || norm.includes("西東京")) return areaCenterFallback["G"];
+  if (norm.includes("府中")) return areaCenterFallback["H"];
+  if (norm.includes("調布") || norm.includes("狛江")) return areaCenterFallback["I"];
+  return { area: "他", lat: 35.600, lng: 139.420 };
+}
+
+function calcDistKm(a, b) {
+  const R = 6371;
+  const dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
+  const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+// カスタム得意先管理
+let customClients = [];
+let masterData = [];
+let itemConfigs = {};
+
+function loadCustomClients() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) customClients = JSON.parse(raw);
+    if (!Array.isArray(customClients)) customClients = [];
+  } catch (e) { customClients = []; }
+}
+function persistCustomClients() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customClients)); } catch (e) {}
+}
+
+function rebuildMasterData() {
+  masterData = [...baseMasterData];
+  // 新規得意先は一筆書き順の中で一番近い既存得意先の隣に自動挿入する
+  customClients.forEach(c => {
+    let pool = masterData.filter(m => m.area === c.area);
+    if (pool.length === 0) pool = masterData;
+    let bestDist = Infinity, bestTarget = null;
+    pool.forEach(m => {
+      const dist = calcDistKm(c, m);
+      if (dist < bestDist) { bestDist = dist; bestTarget = m; }
+    });
+    const idx = bestTarget ? masterData.indexOf(bestTarget) : masterData.length - 1;
+    masterData.splice(idx + 1, 0, { ...c, isCustom: true });
+  });
+
+  const defStay = Math.max(0, parseInt(document.getElementById("defaultStayMin")?.value, 10) || 10);
+  masterData.forEach(d => {
+    if (!itemConfigs[d.no]) {
+      itemConfigs[d.no] = { jobType: "delivery", stay: defStay, stayEdited: false, tc: { type: "none", time: "10:00" } };
+    }
+  });
+
+  // 依頼先サジェスト更新
+  const dl = document.getElementById("clientDatalist");
+  dl.innerHTML = "";
+  const seen = new Set();
+  masterData.forEach(d => {
+    if (!seen.has(d.name)) { seen.add(d.name); const opt = document.createElement("option"); opt.value = d.name; dl.appendChild(opt); }
+  });
+}
+
+// 郵便番号自動検索
+let lastLookedZipMap = {};
+function onZipInput(zipId, addrId, msgId) {
+  const zip = document.getElementById(zipId).value.replace(/[^\d]/g, "");
+  if (zip.length === 7 && zip !== lastLookedZipMap[zipId]) lookupZip(zipId, addrId, msgId);
+}
+async function lookupZip(zipId, addrId, msgId) {
+  const zip = document.getElementById(zipId).value.replace(/[^\d]/g, "");
+  const msg = document.getElementById(msgId);
+  if (zip.length !== 7) { msg.textContent = "7桁の数字を入力してください"; return; }
+  lastLookedZipMap[zipId] = zip; msg.textContent = "住所を検索中...";
+  try {
+    const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`);
+    const data = await res.json();
+    if (data && data.results && data.results.length > 0) {
+      const r = data.results[0];
+      const town = (r.address3 && r.address3 !== "以下に掲載がない場合") ? r.address3 : "";
+      const addrInp = document.getElementById(addrId);
+      addrInp.value = `${r.address1}${r.address2}${town}`;
+      msg.textContent = "✅ 番地を後ろに入力してください";
+      addrInp.focus();
+    } else { msg.textContent = "該当する郵便番号が見つかりません（手入力可）"; }
+  } catch (e) { msg.textContent = "通信不可のため住所を手入力してください"; }
+}
+
+async function fetchExactCoords(addr, fallbackGeo) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1600);
+    const res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(cleanAddr(addr))}`, { signal: ctrl.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].geometry && data[0].geometry.coordinates) {
+      const [lng, lat] = data[0].geometry.coordinates;
+      return { lat, lng };
+    }
+  } catch (e) {}
+  return { lat: fallbackGeo.lat, lng: fallbackGeo.lng };
+}
+
+// 新規得意先モーダル操作
+function openClientModal() {
+  const maxNo = masterData.reduce((m, d) => Math.max(m, d.no || 0), 307);
+  document.getElementById("cNo").value = maxNo + 1;
+  renderCustomClientList();
+  document.getElementById("clientModal").style.display = "flex";
+}
+function closeClientModal() { document.getElementById("clientModal").style.display = "none"; }
+
+async function saveNewClient() {
+  const no = parseInt(document.getElementById("cNo").value, 10);
+  const name = document.getElementById("cName").value.trim();
+  const addr = document.getElementById("cAddr").value.trim();
+  const manualArea = document.getElementById("cArea").value;
+  if (!no || !name || !addr) { alert("得意先No.・名称・住所は必須です。"); return; }
+  if (masterData.some(d => d.no === no)) { alert(`No.${no} はすでに登録されています。別の番号を指定してください。`); return; }
+
+  const btn = document.getElementById("saveClientBtn");
+  btn.disabled = true; btn.textContent = "登録・位置計算中...";
+
+  const geo = guessLocation(addr, manualArea);
+  const exact = (manualArea === "auto") ? await fetchExactCoords(addr, geo) : { lat: geo.lat, lng: geo.lng };
+
+  customClients.push({ no, area: geo.area, name, addr, lat: exact.lat, lng: exact.lng });
+  persistCustomClients();
+  rebuildMasterData();
+  renderSelector();
+  renderCustomClientList();
+
+  document.getElementById("cNo").value = no + 1;
+  document.getElementById("cName").value = "";
+  document.getElementById("cZip").value = "";
+  document.getElementById("cZipMsg").textContent = "";
+  document.getElementById("cAddr").value = "";
+  btn.disabled = false; btn.textContent = "✅ この得意先を登録する";
+  alert(`No.${no}「${name}」を登録しました！`);
+}
+
+function deleteCustomClient(no) {
+  if (!confirm(`No.${no} をマスタから削除しますか？`)) return;
+  customClients = customClients.filter(c => c.no !== no);
+  persistCustomClients();
+  if (selectedNos.has(no)) removeTaskFromSelection(no);
+  rebuildMasterData();
+  renderSelector();
+  renderCustomClientList();
+  recalcAndRender();
+}
+
+function renderCustomClientList() {
+  document.getElementById("customCount").textContent = customClients.length;
+  const box = document.getElementById("customClientList");
+  if (customClients.length === 0) {
+    box.innerHTML = "<div style='padding:10px;color:#718096;font-size:0.85rem;'>まだ新規追加された得意先はありません。</div>";
+    return;
+  }
+  box.innerHTML = "";
+  customClients.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "custom-list-item";
+    div.innerHTML = `<span><span class="badge area-${c.area}">${c.area}</span><strong>No.${c.no}</strong> ${c.name}（${c.addr}）</span>`;
+    const btn = document.createElement("button");
+    btn.className = "btn-del"; btn.textContent = "削除";
+    btn.onclick = () => deleteCustomClient(c.no);
+    div.appendChild(btn);
+    box.appendChild(div);
+  });
+}
+
+function exportCustomClients() {
+  if (customClients.length === 0) { alert("書き出す新規得意先がありません。"); return; }
+  const txt = JSON.stringify(customClients);
+  navigator.clipboard.writeText(txt).then(() => alert("新規得意先データをコピーしました！他のPCの「読み込み」に貼り付けてください。"));
+}
+function toggleImportBox() {
+  const b = document.getElementById("importBox");
+  b.style.display = (b.style.display === "none") ? "block" : "none";
+}
+function importCustomClients() {
+  try {
+    const arr = JSON.parse(document.getElementById("importText").value.trim());
+    if (!Array.isArray(arr)) throw new Error();
+    let added = 0;
+    arr.forEach(c => {
+      if (c.no && c.name && c.addr && !masterData.some(m => m.no === c.no)) {
+        customClients.push(c);
+        added++;
+      }
+    });
+    persistCustomClients();
+    rebuildMasterData();
+    renderSelector();
+    renderCustomClientList();
+    document.getElementById("importText").value = "";
+    document.getElementById("importBox").style.display = "none";
+    alert(`${added}件の新規得意先を取り込みました！`);
+  } catch (e) { alert("データの形式が正しくありません。"); }
+}
+
+let selectedNos = new Set();
+let routeSequence = [];
+let manualLocked = false;
+let uidCounter = 1;
+let currentTab = "ALL";
+let currentView = "create";
+
+function switchView(view) {
+  currentView = view;
+  document.getElementById("viewCreate").style.display = (view === "create") ? "block" : "none";
+  document.getElementById("viewMap").style.display = (view === "map") ? "block" : "none";
+  document.getElementById("tabCreateBtn").classList.toggle("active", view === "create");
+  document.getElementById("tabMapBtn").classList.toggle("active", view === "map");
+  if (view === "map") renderMapView();
+}
+
+function openManual() { document.getElementById("manualModal").style.display = "flex"; }
+function closeManual() { document.getElementById("manualModal").style.display = "none"; }
+
+function timeToMin(str) { const [h, m] = str.split(":").map(Number); return h * 60 + m; }
+function minToTime(min) {
+  const m = Math.round(min);
+  return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+}
+function calcTravelMin(a, b, speedKmh) {
+  if (a.group && b.group && a.group === b.group) return 0;
+  const distKm = calcDistKm(a, b);
+  if (distKm < 0.05) return 0;
+  return Math.max(2, Math.round((distKm * 1.35 / speedKmh) * 60 + 2));
+}
+
+function onDefaultStayChange() {
+  const def = Math.max(0, parseInt(document.getElementById("defaultStayMin").value, 10) || 0);
+  masterData.forEach(d => { if (!itemConfigs[d.no].stayEdited) itemConfigs[d.no].stay = def; });
+  routeSequence.forEach(r => { if ((r.kind === "private" || r.kind === "base") && !r.stayEdited) r.stay = def; });
+  recalcAndRender();
+}
+
+function initTabs() {
+  const tabs = document.getElementById("areaTabs");
+  tabs.innerHTML = "";
+  Object.keys(areaNames).forEach(k => {
+    const span = document.createElement("span");
+    span.className = "tab" + (k === currentTab ? " active" : "");
+    span.textContent = areaNames[k];
+    span.onclick = () => { currentTab = k; initTabs(); renderSelector(); };
+    tabs.appendChild(span);
+  });
+}
+
+function renderSelector() {
+  const box = document.getElementById("selectorList");
+  const q = document.getElementById("searchBox").value.trim().toLowerCase();
+  box.innerHTML = "";
+  const sorted = [...masterData].sort((a,b) => a.no - b.no);
+
+  sorted.forEach(item => {
+    if (currentTab !== "ALL" && item.area !== currentTab) return;
+    if (q && !(String(item.no).includes(q) || item.name.toLowerCase().includes(q) || item.addr.toLowerCase().includes(q))) return;
+
+    const cfg = itemConfigs[item.no];
+    const row = document.createElement("div");
+    row.className = "item-row";
+
+    const lbl = document.createElement("label");
+    lbl.className = "item-main";
+    const chk = document.createElement("input");
+    chk.type = "checkbox"; chk.checked = selectedNos.has(item.no);
+    chk.onchange = () => {
+      if (chk.checked) addTaskToSelection(item.no);
+      else removeTaskFromSelection(item.no);
+      onSelectionOrConstraintChanged();
+    };
+    lbl.appendChild(chk);
+
+    const newBadge = item.isCustom ? `<span class="badge" style="background:#2f855a;">新規</span>` : "";
+    const txtSpan = document.createElement("span");
+    txtSpan.innerHTML = `<span class="badge area-${item.area}">${item.area}</span>${newBadge}<strong>No.${item.no}</strong> ${item.name} <span style="color:#718096;font-size:0.78rem;">(${item.addr.split(" ")[0]})</span>`;
+    lbl.appendChild(txtSpan);
+
+    const ctrl = document.createElement("div");
+    ctrl.className = "item-ctrl";
+
+    const jobSel = document.createElement("select");
+    jobSel.innerHTML = `<option value="delivery">納品</option><option value="return">返却</option><option value="both">納品と返却</option>`;
+    jobSel.value = cfg.jobType;
+    jobSel.onchange = () => {
+      cfg.jobType = jobSel.value;
+      if (!selectedNos.has(item.no)) { addTaskToSelection(item.no, true); chk.checked = true; }
+      recalcAndRender();
+    };
+
+    const sel = document.createElement("select");
+    sel.innerHTML = `<option value="none">指定なし</option><option value="am">午前 (~12:00)</option><option value="pm">午後 (12:00~)</option><option value="exact">時間指定</option>`;
+    sel.value = cfg.tc.type;
+
+    const timeInp = document.createElement("input");
+    timeInp.type = "time"; timeInp.value = cfg.tc.time;
+    timeInp.style.display = (cfg.tc.type === "exact") ? "inline-block" : "none";
+
+    sel.onchange = () => {
+      cfg.tc.type = sel.value;
+      timeInp.style.display = (cfg.tc.type === "exact") ? "inline-block" : "none";
+      if (cfg.tc.type !== "none" && !selectedNos.has(item.no)) { addTaskToSelection(item.no); chk.checked = true; }
+      onSelectionOrConstraintChanged();
+    };
+    timeInp.onchange = () => {
+      cfg.tc.time = timeInp.value || "10:00";
+      if (!selectedNos.has(item.no)) { addTaskToSelection(item.no); chk.checked = true; }
+      onSelectionOrConstraintChanged();
+    };
+
+    ctrl.appendChild(jobSel); ctrl.appendChild(sel); ctrl.appendChild(timeInp);
+    row.appendChild(lbl); row.appendChild(ctrl);
+    box.appendChild(row);
+  });
+}
+
+function addTaskToSelection(no, keepJobType = false) {
+  if (!selectedNos.has(no)) {
+    selectedNos.add(no);
+    if (!keepJobType) itemConfigs[no].jobType = document.getElementById("defaultJobType").value;
+    if (!itemConfigs[no].stayEdited) itemConfigs[no].stay = Math.max(0, parseInt(document.getElementById("defaultStayMin").value, 10) || 0);
+    routeSequence.push({ uid: "u" + (uidCounter++), kind: "task", no });
+  }
+}
+
+function removeTaskFromSelection(no) {
+  selectedNos.delete(no);
+  routeSequence = routeSequence.filter(r => !(r.kind === "task" && r.no === no));
+}
+
+async function addPrivateHouse() {
+  const name = document.getElementById("pName").value.trim();
+  const addr = document.getElementById("pAddr").value.trim();
+  if (!name || !addr) { alert("個人宅名と住所は必須です。"); return; }
+
+  const btn = document.getElementById("addPrivateBtn");
+  btn.disabled = true; btn.textContent = "位置確認・追加中...";
+
+  const jobType = document.getElementById("pJobType").value;
+  const tcType = document.getElementById("pTimeType").value;
+  const tcTime = document.getElementById("pExactTime").value || "10:00";
+  const stay = Math.max(0, parseInt(document.getElementById("pStay").value, 10) || 0);
+  const clientName = document.getElementById("pClient").value.trim();
+  const staffName = document.getElementById("pStaff").value.trim();
+  const manualArea = document.getElementById("pArea").value;
+  const geo = guessLocation(addr, manualArea);
+  const exactCoords = (manualArea === "auto") ? await fetchExactCoords(addr, geo) : { lat: geo.lat, lng: geo.lng };
+
+  routeSequence.push({
+    uid: "p" + (uidCounter++), kind: "private", no: null,
+    area: geo.area, lat: exactCoords.lat, lng: exactCoords.lng,
+    name, addr, jobType, stay, stayEdited: true,
+    tc: { type: tcType, time: tcTime }, clientName, staffName
+  });
+
+  document.getElementById("pName").value = "";
+  document.getElementById("pZip").value = "";
+  document.getElementById("zipMsg").textContent = "";
+  document.getElementById("pAddr").value = "";
+  document.getElementById("pClient").value = "";
+  document.getElementById("pStaff").value = "";
+  document.getElementById("pTimeType").value = "none";
+  document.getElementById("pExactTime").style.display = "none";
+  lastLookedZipMap["pZip"] = "";
+
+  btn.disabled = false; btn.textContent = "＋ 個人宅をルートに追加";
+  onSelectionOrConstraintChanged();
+}
+
+function addReturnBase() {
+  const defStay = Math.max(0, parseInt(document.getElementById("defaultStayMin").value, 10) || 10);
+  routeSequence.push({ uid: "b" + (uidCounter++), kind: "base", stay: defStay, stayEdited: false });
+  manualLocked = true;
+  recalcAndRender();
+}
+
+function applyQuickNos() {
+  const raw = document.getElementById("quickNos").value;
+  const nums = raw.split(/[\s,、，]+/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+  const validNos = new Set(masterData.map(d => d.no));
+  const unknown = [];
+  nums.forEach(n => { if (validNos.has(n)) addTaskToSelection(n); else unknown.push(n); });
+  const warn = document.getElementById("warnBox");
+  if (unknown.length > 0) {
+    warn.style.display = "block";
+    warn.textContent = "⚠️ 対象外（J以降・他県・または存在しないNo.）： " + unknown.join(", ") + " ※配送先住所をリストで要確認！";
+  } else {
+    warn.style.display = "none";
+  }
+  renderSelector();
+  onSelectionOrConstraintChanged();
+}
+
+function clearAll() {
+  selectedNos.clear(); routeSequence = []; manualLocked = false;
+  const defStay = Math.max(0, parseInt(document.getElementById("defaultStayMin").value, 10) || 10);
+  masterData.forEach(d => { itemConfigs[d.no] = { jobType: "delivery", stay: defStay, stayEdited: false, tc: { type: "none", time: "10:00" } }; });
+  document.getElementById("quickNos").value = "";
+  document.getElementById("warnBox").style.display = "none";
+  renderSelector();
+  recalcAndRender();
+}
+
+function onSelectionOrConstraintChanged() {
+  if (!manualLocked && !routeSequence.some(r => r.kind === "base")) runAutoOptimize();
+  else recalcAndRender();
+}
+
+function optimizeSegment(segItems, startPos, startMin, speedKmh) {
+  if (segItems.length <= 1) return segItems;
+  if (!segItems.some(it => it.tc.type !== "none")) return segItems;
+
+  const BEAM_WIDTH = 35;
+  let beam = [{
+    lastPos: startPos, lastLoopIdx: -1, time: startMin, path: [],
+    used: new Array(segItems.length).fill(false),
+    lateCount: 0, totalLate: 0, totalWait: 0, totalTravel: 0, orderPenalty: 0
+  }];
+
+  for (let step = 0; step < segItems.length; step++) {
+    const nextBeam = [];
+    for (const st of beam) {
+      for (let i = 0; i < segItems.length; i++) {
+        if (st.used[i]) continue;
+        const it = segItems[i];
+        const tr = calcTravelMin(st.lastPos, it, speedKmh);
+        const arr = st.time + tr;
+        let wait = 0, late = 0;
+        if (it.tc.type === "am") { if (arr > 720) late = arr - 720; }
+        else if (it.tc.type === "pm") { if (arr < 720) wait = 720 - arr; }
+        else if (it.tc.type === "exact") {
+          const target = timeToMin(it.tc.time);
+          if (arr < target) wait = target - arr; else if (arr > target) late = arr - target;
+        }
+        const dep = arr + wait + it.stay;
+        const nextUsed = st.used.slice(); nextUsed[i] = true;
+        const revPen = (st.lastLoopIdx !== -1 && it.loopIdx < st.lastLoopIdx) ? 15 : 0;
+        const score = ((st.lateCount + (late > 0 ? 1 : 0)) * 1000000) + ((st.totalLate + late) * 10000) + ((st.totalWait + wait) * 100) + ((st.totalTravel + tr) * 10) + (st.orderPenalty + revPen);
+
+        nextBeam.push({
+          lastPos: it, lastLoopIdx: it.loopIdx, time: dep, path: [...st.path, it],
+          used: nextUsed, lateCount: st.lateCount + (late > 0 ? 1 : 0),
+          totalLate: st.totalLate + late, totalWait: st.totalWait + wait,
+          totalTravel: st.totalTravel + tr, orderPenalty: st.orderPenalty + revPen, score
+        });
+      }
+    }
+    nextBeam.sort((a, b) => a.score - b.score);
+    beam = nextBeam.slice(0, BEAM_WIDTH);
+  }
+  return beam[0].path;
+}
+
+function findNearestLoopIdx(item, orderedMaster) {
+  let pool = orderedMaster.filter(m => m.area === item.area);
+  if (pool.length === 0) pool = orderedMaster;
+  let bestDist = Infinity, bestIdx = 0;
+  pool.forEach(m => { const d = calcDistKm(item, m); if (d < bestDist) { bestDist = d; bestIdx = m.loopIdx; } });
+  return bestIdx + 0.5;
+}
+
+function runAutoOptimize() {
+  manualLocked = false;
+  const dir = document.querySelector('input[name="dir"]:checked').value;
+  const nonA = masterData.filter(d => d.area !== "A");
+  const areaA = masterData.filter(d => d.area === "A");
+  const orderedRaw = (dir === "ccw") ? [...nonA, ...areaA] : [...nonA.reverse(), ...areaA];
+  const orderedMaster = orderedRaw.map((d, idx) => ({ ...d, loopIdx: idx }));
+  const loopMap = new Map(orderedMaster.map(d => [d.no, d]));
+
+  const speedKmh = parseInt(document.getElementById("speedKmh").value, 10) || 24;
+  let currTime = timeToMin(document.getElementById("startTime").value || "09:00");
+  const newSeq = [];
+  let segment = [];
+
+  const flushSegment = () => {
+    if (segment.length === 0) return;
+    const enriched = segment.map(r => {
+      if (r.kind === "task") {
+        const m = loopMap.get(r.no); const cfg = itemConfigs[r.no];
+        return { ...r, ...m, stay: cfg.stay, tc: cfg.tc };
+      } else {
+        return { ...r, loopIdx: findNearestLoopIdx(r, orderedMaster) };
+      }
+    }).sort((a, b) => a.loopIdx - b.loopIdx);
+
+    const opt = optimizeSegment(enriched, ORIGIN, currTime, speedKmh);
+    let pos = ORIGIN;
+    opt.forEach(it => {
+      const tr = calcTravelMin(pos, it, speedKmh);
+      const arr = currTime + tr;
+      let wait = 0;
+      if (it.tc.type === "pm" && arr < 720) wait = 720 - arr;
+      else if (it.tc.type === "exact") { const t = timeToMin(it.tc.time); if (arr < t) wait = t - arr; }
+      currTime = arr + wait + it.stay;
+      pos = it;
+      if (it.kind === "task") newSeq.push({ uid: it.uid, kind: "task", no: it.no });
+      else newSeq.push(segment.find(s => s.uid === it.uid));
+    });
+    currTime += calcTravelMin(pos, ORIGIN, speedKmh);
+    segment = [];
+  };
+
+  routeSequence.forEach(r => {
+    if (r.kind === "base") { flushSegment(); newSeq.push(r); currTime += r.stay; }
+    else segment.push(r);
+  });
+  flushSegment();
+  routeSequence = newSeq;
+  recalcAndRender();
+}
+
+function moveStep(idx, delta) {
+  const target = idx + delta;
+  if (target < 0 || target >= routeSequence.length) return;
+  const tmp = routeSequence[idx];
+  routeSequence[idx] = routeSequence[target];
+  routeSequence[target] = tmp;
+  manualLocked = true;
+  recalcAndRender();
+}
+
+function removeRouteItem(idx) {
+  const item = routeSequence[idx];
+  if (item.kind === "task") { selectedNos.delete(item.no); renderSelector(); }
+  routeSequence.splice(idx, 1);
+  recalcAndRender();
+}
+
+function buildSchedule() {
+  const startMin = timeToMin(document.getElementById("startTime").value || "09:00");
+  const speedKmh = parseInt(document.getElementById("speedKmh").value, 10) || 24;
+  const masterMap = new Map(masterData.map(d => [d.no, d]));
+  let currPos = ORIGIN, currTime = startMin;
+
+  return routeSequence.map(r => {
+    if (r.kind === "base") {
+      const travel = calcTravelMin(currPos, ORIGIN, speedKmh);
+      const arr = currTime + travel, dep = arr + r.stay;
+      currPos = ORIGIN; currTime = dep;
+      return { uid: r.uid, kind: "base", no: 0, area: "拠点", name: ORIGIN.name, addr: ORIGIN.addr, lat: ORIGIN.lat, lng: ORIGIN.lng, jobType: "base", stay: r.stay, tc: { type: "none", time: "" }, travel, arr, wait: 0, late: 0, workStart: arr, dep };
+    } else if (r.kind === "private") {
+      const travel = calcTravelMin(currPos, r, speedKmh);
+      const arr = currTime + travel;
+      let wait = 0, late = 0;
+      if (r.tc.type === "am") { if (arr > 720) late = arr - 720; }
+      else if (r.tc.type === "pm") { if (arr < 720) wait = 720 - arr; }
+      else if (r.tc.type === "exact") { const t = timeToMin(r.tc.time); if (arr < t) wait = t - arr; else if (arr > t) late = arr - t; }
+      const workStart = arr + wait, dep = workStart + r.stay;
+      currPos = r; currTime = dep;
+      return { ...r, travel, arr, wait, late, workStart, dep };
+    } else {
+      const m = masterMap.get(r.no), cfg = itemConfigs[r.no];
+      const travel = calcTravelMin(currPos, m, speedKmh);
+      const arr = currTime + travel;
+      let wait = 0, late = 0;
+      if (cfg.tc.type === "am") { if (arr > 720) late = arr - 720; }
+      else if (cfg.tc.type === "pm") { if (arr < 720) wait = 720 - arr; }
+      else if (cfg.tc.type === "exact") { const t = timeToMin(cfg.tc.time); if (arr < t) wait = t - arr; else if (arr > t) late = arr - t; }
+      const workStart = arr + wait, dep = workStart + cfg.stay;
+      currPos = m; currTime = dep;
+      return { uid: r.uid, kind: "task", ...m, jobType: cfg.jobType, stay: cfg.stay, tc: cfg.tc, travel, arr, wait, late, workStart, dep };
+    }
+  });
+}
+
+function cleanAddr(addr) { return addr.split(/[\s　]+/)[0]; }
+
+function renderGoogleMapButtons(schedule) {
+  const box = document.getElementById("gmapBox"), btnArea = document.getElementById("gmapButtons");
+  if (schedule.length === 0) { box.style.display = "none"; return; }
+  box.style.display = "block"; btnArea.innerHTML = "";
+
+  const trips = []; let currentTrip = [];
+  schedule.forEach(s => { if (s.kind === "base") { currentTrip.push(s); trips.push(currentTrip); currentTrip = []; } else currentTrip.push(s); });
+  if (currentTrip.length > 0) trips.push(currentTrip);
+
+  const hasMultiTrips = trips.length > 1;
+  trips.forEach((trip, tIdx) => {
+    const chunkSize = 9; let prevOrigin = ORIGIN.addr;
+    for (let i = 0; i < trip.length; i += chunkSize) {
+      const chunk = trip.slice(i, i + chunkSize);
+      const origin = prevOrigin, dest = cleanAddr(chunk[chunk.length - 1].addr);
+      const waypoints = chunk.slice(0, chunk.length - 1).map(d => cleanAddr(d.addr));
+      let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}`;
+      if (waypoints.length > 0) url += `&waypoints=${encodeURIComponent(waypoints.join("|"))}`;
+      const a = document.createElement("a");
+      a.className = "gmap-btn"; a.href = url; a.target = "_blank";
+      const tripLabel = hasMultiTrips ? `第${tIdx + 1}便 ` : "";
+      const partLabel = (trip.length <= chunkSize) ? `（${trip.length}箇所）` : `（${i + 1}〜${i + chunk.length}箇所目）`;
+      a.textContent = `🗺️ Googleマップ：${tripLabel}${partLabel}`;
+      btnArea.appendChild(a);
+      prevOrigin = dest;
+    }
+  });
+}
+
+function recalcAndRender() {
+  const schedule = buildSchedule();
+  const visitCount = schedule.filter(s => s.kind !== "base").length;
+  document.getElementById("countDisp").textContent = visitCount;
+  document.getElementById("lockBar").style.display = (manualLocked && schedule.length > 0) ? "flex" : "none";
+  renderGoogleMapButtons(schedule);
+
+  const res = document.getElementById("routeResult"), sumBar = document.getElementById("summaryBar");
+  if (schedule.length === 0) {
+    sumBar.style.display = "none";
+    res.innerHTML = "上から配送先をチェックするか、個人宅を追加してください。";
+    if (currentView === "map") renderMapView();
+    return;
+  }
+
+  const speedKmh = parseInt(document.getElementById("speedKmh").value, 10) || 24;
+  const startStr = document.getElementById("startTime").value || "09:00";
+  const lastItem = schedule[schedule.length - 1];
+  const returnTravel = (lastItem.kind === "base") ? 0 : calcTravelMin(lastItem, ORIGIN, speedKmh);
+  const returnTime = (lastItem.kind === "base") ? lastItem.arr : (lastItem.dep + returnTravel);
+  const totalTravelAll = schedule.reduce((s, d) => s + d.travel, 0) + returnTravel;
+  const totalStayAll = schedule.reduce((s, d) => s + d.stay, 0);
+  const lateCount = schedule.filter(d => d.late > 0).length;
+
+  sumBar.style.display = "block";
+  sumBar.innerHTML = `🕘 出発 ${startStr} → 🏁 最終帰社 ${minToTime(returnTime)}（総移動：約${totalTravelAll}分 / 総作業時間：${totalStayAll}分）` +
+    (lateCount > 0 ? ` <span style="color:#c53030;">｜⚠️ 時間指定超過あり(${lateCount}件)</span>` : ` ｜ ✅ 時間指定すべて厳守可能`);
+
+  const groupCount = {};
+  schedule.forEach(d => { if (d.group) groupCount[d.group] = (groupCount[d.group] || 0) + 1; });
+
+  res.innerHTML = "";
+  schedule.forEach((d, idx) => {
+    const isSame = d.group && groupCount[d.group] > 1;
+    const div = document.createElement("div");
+    div.className = "route-item" + (isSame ? " same-addr-row" : "");
+
+    let tb = "";
+    if (d.tc.type === "am") tb = `<span class="time-badge tb-am">指定:午前(~12:00)</span>`;
+    else if (d.tc.type === "pm") tb = `<span class="time-badge tb-pm">指定:午後(12:00~)</span>`;
+    else if (d.tc.type === "exact") tb = `<span class="time-badge tb-exact">指定:${d.tc.time}</span>`;
+
+    const lateHtml = d.late > 0 ? `<div class="late-alert">⚠️ 指定時刻より約${d.late}分遅れ見込み</div>` : "";
+    const waitHtml = d.wait > 0 ? `<div class="wait-info">⏳ 早着待機 → ${minToTime(d.workStart)}作業開始</div>` : "";
+    const startShow = d.wait > 0 ? `${minToTime(d.arr)}着 / ${minToTime(d.workStart)}開始` : `${minToTime(d.arr)}着`;
+    const mapUrl = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(cleanAddr(d.addr));
+
+    const timeCol = document.createElement("div");
+    timeCol.className = `route-time-col job-box-${d.jobType}`;
+    timeCol.innerHTML = `
+      <div style="font-weight:bold;">${idx + 1}番目 <span class="job-tag tag-${d.jobType}">${jobLabels[d.jobType]}</span> <span style="font-size:0.78rem;">(移動 約${d.travel}分)</span></div>
+      <div style="margin-top:3px;"><strong>${startShow}</strong> → ${minToTime(d.dep)}発</div>
+      <div style="font-weight:bold;margin-top:2px;">🛠️ 作業時間：${d.stay}分</div>
+      ${waitHtml}${lateHtml}
+    `;
+
+    const detailCol = document.createElement("div");
+    detailCol.className = "route-detail-col";
+
+    const titleLine = document.createElement("div");
+    if (d.kind === "base") {
+      titleLine.innerHTML = `<span class="badge" style="background:#d69e2e;color:#1a202c;">2便積込</span><strong>🏢 ${d.name}</strong>`;
+    } else if (d.kind === "private") {
+      titleLine.innerHTML = `<span class="badge area-${d.area}">${d.area}エリア</span><span class="badge" style="background:#6b46c1;">🏠 個人宅</span><strong>${d.name}</strong>${tb}`;
+    } else {
+      titleLine.innerHTML = `<span class="badge area-${d.area}">${d.area}エリア</span><strong>[No.${d.no}] ${d.name}</strong>${tb}${isSame ? '<span style="color:#c53030;font-size:0.78rem;font-weight:bold;margin-left:6px;">★同住所</span>' : ''}`;
+    }
+
+    const addrLine = document.createElement("div");
+    addrLine.style.cssText = "font-size:0.84rem;color:#4a5568;margin-top:3px;";
+    addrLine.innerHTML = `${d.addr} <a class="map-link no-print" href="${mapUrl}" target="_blank">📍 地図</a>`;
+
+    detailCol.appendChild(titleLine); detailCol.appendChild(addrLine);
+
+    if (d.kind === "private" && (d.clientName || d.staffName)) {
+      const meta = document.createElement("div");
+      meta.className = "private-meta";
+      const parts = [];
+      if (d.clientName) parts.push(`依頼得意先：${d.clientName}`);
+      if (d.staffName) parts.push(`担当：${d.staffName}`);
+      meta.textContent = parts.join(" ／ ");
+      detailCol.appendChild(meta);
+    }
+
+    const editBar = document.createElement("div");
+    editBar.className = "route-edit-bar no-print";
+    const btnUp = document.createElement("button"); btnUp.className = "btn-mini"; btnUp.textContent = "↑"; btnUp.disabled = (idx === 0); btnUp.onclick = () => moveStep(idx, -1);
+    const btnDown = document.createElement("button"); btnDown.className = "btn-mini"; btnDown.textContent = "↓"; btnDown.disabled = (idx === schedule.length - 1); btnDown.onclick = () => moveStep(idx, 1);
+
+    const stayLbl = document.createElement("label"); stayLbl.textContent = "作業時間:";
+    const stayInp = document.createElement("input"); stayInp.type = "number"; stayInp.min = 0; stayInp.max = 180; stayInp.value = d.stay; stayInp.style.width = "48px";
+    stayInp.onchange = () => {
+      const val = Math.max(0, parseInt(stayInp.value, 10) || 0);
+      if (d.kind === "base" || d.kind === "private") { routeSequence[idx].stay = val; routeSequence[idx].stayEdited = true; }
+      else { itemConfigs[d.no].stay = val; itemConfigs[d.no].stayEdited = true; }
+      recalcAndRender();
+    };
+    stayLbl.appendChild(stayInp); stayLbl.append("分");
+    editBar.appendChild(btnUp); editBar.appendChild(btnDown); editBar.appendChild(stayLbl);
+
+    if (d.kind === "task" || d.kind === "private") {
+      const jSel = document.createElement("select");
+      jSel.innerHTML = `<option value="delivery">納品</option><option value="return">返却</option><option value="both">納品と返却</option>`;
+      jSel.value = d.jobType;
+      jSel.onchange = () => {
+        if (d.kind === "private") routeSequence[idx].jobType = jSel.value;
+        else { itemConfigs[d.no].jobType = jSel.value; renderSelector(); }
+        recalcAndRender();
+      };
+      editBar.appendChild(jSel);
+    }
+
+    const btnDel = document.createElement("button"); btnDel.className = "btn-del"; btnDel.textContent = "×外す"; btnDel.onclick = () => removeRouteItem(idx);
+    editBar.appendChild(btnDel);
+    detailCol.appendChild(editBar);
+    div.appendChild(timeCol); div.appendChild(detailCol);
+    res.appendChild(div);
+  });
+
+  if (lastItem.kind !== "base") {
+    const retDiv = document.createElement("div");
+    retDiv.className = "route-item"; retDiv.style.background = "#f7fafc";
+    retDiv.innerHTML = `
+      <div class="route-time-col job-box-base">
+        <div style="font-weight:bold;">最終帰社 <span class="job-tag tag-base">帰社</span> <span style="font-size:0.78rem;">(移動 約${returnTravel}分)</span></div>
+        <div style="margin-top:3px;"><strong>${minToTime(returnTime)}着予定</strong></div>
+      </div>
+      <div class="route-detail-col" style="font-weight:bold; color:#4a5568; padding-top:6px;">🏢 多摩営業所（八王子市堀之内2-24-1）</div>
+    `;
+    res.appendChild(retDiv);
+  }
+  if (currentView === "map") renderMapView();
+}
+
+let leafletMap = null, leafletLayer = null, markerRefs = [];
+
+function renderMapView() {
+  const schedule = buildSchedule();
+  const side = document.getElementById("mapSideList"), sumBar = document.getElementById("mapSummaryBar");
+  const mapDiv = document.getElementById("mapContainer"), cvs = document.getElementById("fallbackCanvas");
+
+  side.innerHTML = "";
+  if (schedule.length === 0) {
+    sumBar.style.display = "none";
+    side.innerHTML = "<div style='padding:10px;color:#718096;'>ルートがまだ選択されていません。「ルート作成・調整」タブで配送先を選んでください。</div>";
+  } else {
+    sumBar.style.display = "block";
+    sumBar.innerHTML = document.getElementById("summaryBar").innerHTML;
+  }
+
+  const originCard = document.createElement("div");
+  originCard.className = "map-step-card"; originCard.style.background = "#fefcbf";
+  originCard.innerHTML = `<strong>🏢 出発：多摩営業所</strong><br><span style="font-size:0.78rem;color:#4a5568;">${document.getElementById("startTime").value}発</span>`;
+  originCard.onclick = () => { if (leafletMap) leafletMap.setView([ORIGIN.lat, ORIGIN.lng], 13); };
+  side.appendChild(originCard);
+
+  schedule.forEach((d, idx) => {
+    const c = document.createElement("div");
+    c.className = "map-step-card"; c.style.borderLeft = `4px solid ${jobColors[d.jobType]}`;
+    c.innerHTML = `<div><strong>${idx + 1}. [${jobLabels[d.jobType]}] ${d.name}</strong></div><div style="font-size:0.78rem;color:#4a5568;">${minToTime(d.arr)}着〜${minToTime(d.dep)}発（移動${d.travel}分/作業${d.stay}分）</div>`;
+    c.onclick = () => { if (leafletMap && markerRefs[idx]) { leafletMap.setView([d.lat, d.lng], 14); markerRefs[idx].openPopup(); } };
+    side.appendChild(c);
+  });
+
+  if (typeof L !== "undefined") {
+    mapDiv.style.display = "block"; cvs.style.display = "none";
+    if (!leafletMap) {
+      leafletMap = L.map("mapContainer").setView([ORIGIN.lat, ORIGIN.lng], 12);
+      const gsiPale = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院（淡色地図）</a>', maxZoom: 18
+      });
+      const gsiStd = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png", {
+        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院（標準地図）</a>', maxZoom: 18
+      });
+      gsiPale.addTo(leafletMap);
+      L.control.layers({ "淡色地図（見やすい）": gsiPale, "標準地図": gsiStd }).addTo(leafletMap);
+      leafletLayer = L.layerGroup().addTo(leafletMap);
+    }
+    setTimeout(() => leafletMap.invalidateSize(), 50);
+    leafletLayer.clearLayers(); markerRefs = [];
+
+    const originIcon = L.divIcon({ className: "", html: `<div class="custom-pin" style="background:#1a202c;border-color:#f6e05e;">拠</div>`, iconSize: [28, 28], iconAnchor: [14, 14] });
+    L.marker([ORIGIN.lat, ORIGIN.lng], { icon: originIcon, zIndexOffset: 1000 }).bindPopup(`<strong>🏢 多摩営業所（拠点）</strong><br>${ORIGIN.addr}`).addTo(leafletLayer);
+
+    const bounds = [[ORIGIN.lat, ORIGIN.lng]];
+    let segCoords = [[ORIGIN.lat, ORIGIN.lng]], tripIdx = 0;
+    const tripLineColors = ["#2b6cb0", "#805ad5", "#2f855a", "#dd6b20"];
+
+    schedule.forEach((d, idx) => {
+      bounds.push([d.lat, d.lng]); segCoords.push([d.lat, d.lng]);
+      const color = jobColors[d.jobType], textCol = (d.jobType === "base") ? "#1a202c" : "#fff";
+      const pinIcon = L.divIcon({ className: "", html: `<div class="custom-pin" style="background:${color};color:${textCol};">${idx + 1}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] });
+      const mk = L.marker([d.lat, d.lng], { icon: pinIcon }).bindPopup(`<strong>${idx + 1}番目 [${jobLabels[d.jobType]}]</strong><br>${d.name}<br>${d.addr}<br>${minToTime(d.arr)}着〜${minToTime(d.dep)}発（作業${d.stay}分）`).addTo(leafletLayer);
+      markerRefs.push(mk);
+      if (d.kind === "base") {
+        L.polyline(segCoords, { color: tripLineColors[tripIdx % tripLineColors.length], weight: 4, opacity: 0.85, dashArray: tripIdx > 0 ? "8, 6" : null }).addTo(leafletLayer);
+        tripIdx++; segCoords = [[ORIGIN.lat, ORIGIN.lng]];
+      }
+    });
+
+    if (segCoords.length > 1) {
+      segCoords.push([ORIGIN.lat, ORIGIN.lng]);
+      L.polyline(segCoords, { color: tripLineColors[tripIdx % tripLineColors.length], weight: 4, opacity: 0.85, dashArray: tripIdx > 0 ? "8, 6" : null }).addTo(leafletLayer);
+    }
+    if (bounds.length > 1) setTimeout(() => leafletMap.fitBounds(bounds, { padding: [45, 45], maxZoom: 14 }), 100);
+    else leafletMap.setView([ORIGIN.lat, ORIGIN.lng], 12);
+  } else {
+    mapDiv.style.display = "none"; cvs.style.display = "block";
+    drawFallbackCanvas(cvs, schedule);
+  }
+}
+
+function drawFallbackCanvas(cvs, schedule) {
+  cvs.width = cvs.clientWidth || 600; cvs.height = 520;
+  const ctx = cvs.getContext("2d"); ctx.clearRect(0, 0, cvs.width, cvs.height);
+  const pts = [ORIGIN, ...schedule];
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  pts.forEach(p => { if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; if (p.lng < minLng) minLng = p.lng; if (p.lng > maxLng) maxLng = p.lng; });
+  const padLat = Math.max(0.02, (maxLat - minLat) * 0.2), padLng = Math.max(0.02, (maxLng - minLng) * 0.2);
+  minLat -= padLat; maxLat += padLat; minLng -= padLng; maxLng += padLng;
+  const toXY = (lat, lng) => ({ x: 40 + ((lng - minLng) / (maxLng - minLng)) * (cvs.width - 80), y: cvs.height - 40 - ((lat - minLat) / (maxLat - minLat)) * (cvs.height - 80) });
+  ctx.font = "12px sans-serif"; ctx.fillStyle = "#718096"; ctx.fillText("簡易ルート配置図（オフライン表示）", 12, 22);
+  ctx.beginPath(); const oXY = toXY(ORIGIN.lat, ORIGIN.lng); ctx.moveTo(oXY.x, oXY.y);
+  schedule.forEach(d => { const p = toXY(d.lat, d.lng); ctx.lineTo(p.x, p.y); });
+  ctx.lineTo(oXY.x, oXY.y); ctx.strokeStyle = "#2b6cb0"; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.fillStyle = "#1a202c"; ctx.beginPath(); ctx.arc(oXY.x, oXY.y, 12, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.fillText("拠", oXY.x - 6, oXY.y + 4);
+  schedule.forEach((d, idx) => {
+    const p = toXY(d.lat, d.lng); ctx.fillStyle = jobColors[d.jobType];
+    ctx.beginPath(); ctx.arc(p.x, p.y, 12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = (d.jobType === "base") ? "#1a202c" : "#fff"; ctx.fillText(String(idx + 1), p.x - 4, p.y + 4);
+    ctx.fillStyle = "#2d3748"; ctx.fillText(d.name.slice(0, 8), p.x + 15, p.y + 4);
+  });
+}
+
+function copyText() {
+  const schedule = buildSchedule();
+  if (schedule.length === 0) { alert("配送先が選択されていません。"); return; }
+  const startStr = document.getElementById("startTime").value || "09:00";
+  const speedKmh = parseInt(document.getElementById("speedKmh").value, 10) || 24;
+  const lastItem = schedule[schedule.length - 1];
+  const returnTravel = (lastItem.kind === "base") ? 0 : calcTravelMin(lastItem, ORIGIN, speedKmh);
+  const returnTime = (lastItem.kind === "base") ? lastItem.arr : (lastItem.dep + returnTravel);
+
+  const visitCount = schedule.filter(s => s.kind !== "base").length;
+  let txt = `【本日の配送まわり順＆予定時刻】\n出発：${startStr}（堀之内拠点） / 訪問先：${visitCount}件\n--------------------\n`;
+  const groupCount = {};
+  schedule.forEach(d => { if (d.group) groupCount[d.group] = (groupCount[d.group] || 0) + 1; });
+
+  schedule.forEach((d, idx) => {
+    const jLabel = jobLabels[d.jobType];
+    const same = (d.group && groupCount[d.group] > 1) ? " ★同住所" : "";
+    let spec = "";
+    if (d.tc.type === "am") spec = " [午前指定]";
+    else if (d.tc.type === "pm") spec = " [午後指定]";
+    else if (d.tc.type === "exact") spec = ` [${d.tc.time}指定]`;
+    const alertTxt = d.late > 0 ? ` ⚠️約${d.late}分遅れ見込` : (d.wait > 0 ? ` (待機→${minToTime(d.workStart)}作業開始)` : "");
+
+    txt += `${idx + 1}. 【${jLabel}】 ${minToTime(d.arr)}着〜${minToTime(d.dep)}発 (移動${d.travel}分 / 作業時間${d.stay}分)${alertTxt}\n`;
+    if (d.kind === "base") txt += `   🏢 ${d.name}（2便積込）\n`;
+    else if (d.kind === "private") {
+      txt += `   [${d.area}] 🏠 [個人宅] ${d.name}${spec}\n   ${d.addr}\n`;
+      if (d.clientName || d.staffName) {
+        const p = []; if (d.clientName) p.push(`依頼元：${d.clientName}`); if (d.staffName) p.push(`担当：${d.staffName}`);
+        txt += `   （${p.join(" / ")}）\n`;
+      }
+    } else {
+      txt += `   [${d.area}] No.${d.no} ${d.name}${spec}${same}\n   ${d.addr}\n`;
+    }
+  });
+  if (lastItem.kind !== "base") txt += `--------------------\n【帰社】 到着予定：${minToTime(returnTime)}（移動${returnTravel}分）`;
+  navigator.clipboard.writeText(txt).then(() => alert("指示用テキストをコピーしました！"));
+}
+
+// 初期化
+loadCustomClients();
+rebuildMasterData();
+initTabs();
+renderSelector();
+</script>
+</body>
+</html>
