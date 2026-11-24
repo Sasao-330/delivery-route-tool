@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>配送ルート＆時刻表作成ツール（正式マスター版）</title>
+<title>配送ルート＆時刻表作成ツール（エリア・郵便番号順対応版）</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
@@ -44,21 +44,12 @@
   .item-main input[type="checkbox"] { margin: 3px 8px 0 0; transform: scale(1.2); cursor: pointer; }
   .item-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 
-  /* 得意先名 色分けバッジ（エリアカラーベース） */
   .short-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; margin-right: 6px; color: #fff; letter-spacing: 0.02em; }
   .badge-area { display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; margin-right: 5px; border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; }
-  .c-A { background: #4a5568; }
-  .c-B { background: #b7791f; }
-  .c-C { background: #dd6b20; }
-  .c-D { background: #c53030; }
-  .c-E { background: #2f855a; }
-  .c-F { background: #0987a0; }
-  .c-G { background: #2b6cb0; }
-  .c-H { background: #4c51bf; }
-  .c-I { background: #805ad5; }
-  .c-J { background: #744210; }
-  .c-K { background: #b83280; }
-  .c-他 { background: #718096; }
+  .c-A { background: #4a5568; } .c-B { background: #b7791f; } .c-C { background: #dd6b20; }
+  .c-D { background: #c53030; } .c-E { background: #2f855a; } .c-F { background: #0987a0; }
+  .c-G { background: #2b6cb0; } .c-H { background: #4c51bf; } .c-I { background: #805ad5; }
+  .c-J { background: #744210; } .c-K { background: #b83280; } .c-他 { background: #718096; }
 
   .private-panel { background: #faf5ff; border: 1px solid #d6bcfa; border-radius: 6px; padding: 12px; margin-top: 10px; }
   .private-grid, .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 8px; margin-bottom: 8px; }
@@ -76,10 +67,8 @@
   .job-box-base     { background: #fefcbf; border: 1px solid #f6e05e; border-left: 6px solid #d69e2e; }
 
   .job-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.76rem; font-weight: bold; color: #fff; margin-left: 4px; }
-  .tag-delivery { background: #2b6cb0; }
-  .tag-return   { background: #c53030; }
-  .tag-both     { background: #2f855a; }
-  .tag-base     { background: #d69e2e; color: #1a202c; }
+  .tag-delivery { background: #2b6cb0; } .tag-return { background: #c53030; }
+  .tag-both { background: #2f855a; } .tag-base { background: #d69e2e; color: #1a202c; }
 
   .route-detail-col { flex: 1; min-width: 240px; }
   .route-edit-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.82rem; background: #f7fafc; padding: 5px 8px; border-radius: 5px; }
@@ -252,7 +241,7 @@
     </div>
 
     <div class="lock-bar no-print" id="lockBar" style="display:none;">
-      <span>🔒 <strong>手動調整モード中</strong>（↑↓での入れ替えや「帰社」の順番を保持しています。出発時間や作業時間を変更しても順番は崩れません）</span>
+      <span>🔒 <strong>手動調整モード中</strong>（↑↓での入れ替えや「帰社」の順番を保持しています。時間指定を優先し直したい場合は右のボタンを押してください）</span>
       <button class="btn-mini" onclick="runAutoOptimize()">🔄 自動最適順に戻す</button>
     </div>
 
@@ -283,7 +272,7 @@
   </div>
 </div>
 
-<!-- ==================== 新規得意先登録モーダル ==================== -->
+<!-- 新規得意先登録モーダル -->
 <div class="modal-bg" id="clientModal" onclick="if(event.target===this)closeClientModal()">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -350,7 +339,7 @@
   </div>
 </div>
 
-<!-- ==================== 取扱説明書モーダル（ブロック別ページ構成） ==================== -->
+<!-- 取扱説明書モーダル -->
 <div class="modal-bg" id="manualModal" onclick="if(event.target===this)closeManual()">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -406,9 +395,9 @@
         <div class="m-item-body">選択中の得意先・時間指定・追加した個人宅・帰社をすべてリセットして、白紙の状態に戻します。</div>
       </div>
       <div class="m-item">
-        <div class="m-item-head">エリアタブ ＆ 得意先リスト各行（色分けされた得意先名）</div>
+        <div class="m-item-head">エリアタブ ＆ 得意先リスト各行（A〜K順・郵便番号順）</div>
         <div class="m-item-body">
-          ・<strong>エリアタブ：</strong>地域ごと（A:堀之内〜K:都心23区）で絞り込みできます。<br>
+          ・<strong>並び順：</strong>「すべて」表示ではエリア順（A〜K）、各エリアの中は<strong>郵便番号順（近い順）</strong>で並んでいます。<br>
           ・<strong>得意先名の色分け：</strong>得意先名（略称）はエリアごとに色分けされており、<strong>得意先名・得意先名称・住所1・住所2・建物名</strong>が表示されます。<br>
           ・<strong>チェック・種別・時間指定：</strong>「指定なし」「午前 (~12:00)」「午後 (12:00~)」「時間指定（時刻入力）」を選べます。時間指定を選ぶと自動でチェックも入ります。
         </div>
@@ -458,7 +447,7 @@
         <div class="m-item-body">
           ・<strong>反時計回り【基本】：</strong>朝のうちに東・北（多摩→調布→府中→国立→日野→八王子）を回り、堀之内へ戻る基本形です。<br>
           ・<strong>時計回り【八王子先回り】：</strong>午前中に八王子側へ行く用事がある場合はこちらを選びます。<br>
-          ・<strong>🔄 自動最適順に並べ直す：</strong>手動入れ替えを解除し、時間指定を厳守した最適な順番に再計算します。
+          ・<strong>🔄 自動最適順に並べ直す：</strong><strong>時間指定（何時・午前・午後）を最優先で厳守</strong>しつつ、ムダの少ない最適順へ自動で並べ直します。
         </div>
       </div>
       <div class="m-item">
@@ -517,80 +506,80 @@
 const ORIGIN = { id: "ORIGIN", area: "拠点", shortName: "多摩営業所", name: "多摩営業所（帰社・積込）", addr1: "東京都", addr2: "八王子市堀之内2-24-1", bldg: "", lat: 35.6305, lng: 139.4035 };
 const STORAGE_KEY = "tama_route_custom_clients_v2";
 
-// 正式マスター（全59件：反時計回り地理順配置）
 const baseMasterData = [
   // E: 多摩
-  {id:"c12476", area:"E", shortName:"さくら唐木田", kana:"サクラカラキダ", name:"さくらの郷 唐木田", addr1:"東京都", addr2:"多摩市唐木田1-29-11", bldg:"さくらの郷 唐木田", lat:35.614, lng:139.413},
-  {id:"c105",   area:"E", shortName:"ぬくもり工房", kana:"シーエスヌクモリコウボウ", name:"ぬくもり工房", addr1:"東京都", addr2:"多摩市鶴牧2-21-13", bldg:"ペアタウン多摩 A101", lat:35.621, lng:139.420},
-  {id:"c22",    area:"E", shortName:"シルバーA", kana:"カブシキガイシャ シルバーアシスト", name:"株式会社シルバーアシスト", addr1:"東京都", addr2:"多摩市落合3-9-1", bldg:"", lat:35.620, lng:139.429},
-  {id:"c66",    area:"E", shortName:"HR多摩東", kana:"ヘルスレントタマヒガシ ステーション", name:"ヘルスレント多摩東ステーション", addr1:"東京都", addr2:"多摩市落合1-21-10", bldg:"", lat:35.623, lng:139.428},
-  {id:"c13391", area:"E", shortName:"多摩永山ガーデン", kana:"タマナガヤマガーデン", name:"多摩永山ガーデン", addr1:"東京都", addr2:"多摩市永山2-6", bldg:"多摩永山ガーデン", lat:35.630, lng:139.448},
-  {id:"c27",    area:"E", shortName:"西東京M", kana:"ニシトウキョウメディカル", name:"西東京メディカル株式会社", addr1:"東京都", addr2:"多摩市一ノ宮4-40-3", bldg:"聖蹟桜ヶ丘ガーデンハウス1F", lat:35.650, lng:139.442},
+  {id:"c12476", area:"E", zip:"2060035", shortName:"さくら唐木田", kana:"サクラカラキダ", name:"さくらの郷 唐木田", addr1:"東京都", addr2:"多摩市唐木田1-29-11", bldg:"さくらの郷 唐木田", lat:35.614, lng:139.413},
+  {id:"c105",   area:"E", zip:"2060034", shortName:"ぬくもり工房", kana:"シーエスヌクモリコウボウ", name:"ぬくもり工房", addr1:"東京都", addr2:"多摩市鶴牧2-21-13", bldg:"ペアタウン多摩 A101", lat:35.621, lng:139.420},
+  {id:"c22",    area:"E", zip:"2060033", shortName:"シルバーA", kana:"カブシキガイシャ シルバーアシスト", name:"株式会社シルバーアシスト", addr1:"東京都", addr2:"多摩市落合3-9-1", bldg:"", lat:35.620, lng:139.429},
+  {id:"c66",    area:"E", zip:"2060033", shortName:"HR多摩東", kana:"ヘルスレントタマヒガシ ステーション", name:"ヘルスレント多摩東ステーション", addr1:"東京都", addr2:"多摩市落合1-21-10", bldg:"", lat:35.623, lng:139.428},
+  {id:"c13391", area:"E", zip:"2060025", shortName:"多摩永山ガーデン", kana:"タマナガヤマガーデン", name:"多摩永山ガーデン", addr1:"東京都", addr2:"多摩市永山2-6", bldg:"多摩永山ガーデン", lat:35.630, lng:139.448},
+  {id:"c27",    area:"E", zip:"2060002", shortName:"西東京M", kana:"ニシトウキョウメディカル", name:"西東京メディカル株式会社", addr1:"東京都", addr2:"多摩市一ノ宮4-40-3", bldg:"聖蹟桜ヶ丘ガーデンハウス1F", lat:35.650, lng:139.442},
   // I: 調布
-  {id:"c2851",  area:"I", shortName:"カンバニュラ", kana:"カンバニュラ", name:"カンバニュラ", addr1:"東京都", addr2:"調布市上石原3-56-16", bldg:"", lat:35.654, lng:139.525},
-  {id:"c14240", area:"I", shortName:"ニック調布", kana:"ニック カブシキガイシャ チョウフエイギョウショ", name:"ニック株式会社 調布営業所", addr1:"東京都", addr2:"調布市布田5-33-1", bldg:"", lat:35.647, lng:139.542},
-  {id:"c9489",  area:"I", shortName:"愛安住 調布", kana:"カブシキガイシャアイアンジュ チョウフエイギョウショ", name:"株式会社愛安住 調布営業所", addr1:"東京都", addr2:"調布市布田3丁目45-6", bldg:"", lat:35.652, lng:139.546},
-  {id:"c6004",  area:"I", shortName:"アース調布", kana:"アースサポートチョウフ", name:"アースサポート調布", addr1:"東京都", addr2:"調布市つつじヶ丘1丁目5番2号", bldg:"", lat:35.657, lng:139.575},
-  {id:"c3543",  area:"I", shortName:"ケアウェル調布", kana:"ケアウェルチョウフテン", name:"ケアウェル調布店", addr1:"東京都", addr2:"調布市深大寺南町5-46-4", bldg:"", lat:35.664, lng:139.555},
+  {id:"c2851",  area:"I", zip:"1820035", shortName:"カンバニュラ", kana:"カンバニュラ", name:"カンバニュラ", addr1:"東京都", addr2:"調布市上石原3-56-16", bldg:"", lat:35.654, lng:139.525},
+  {id:"c14240", area:"I", zip:"1820024", shortName:"ニック調布", kana:"ニック カブシキガイシャ チョウフエイギョウショ", name:"ニック株式会社 調布営業所", addr1:"東京都", addr2:"調布市布田5-33-1", bldg:"", lat:35.647, lng:139.542},
+  {id:"c9489",  area:"I", zip:"1820024", shortName:"愛安住 調布", kana:"カブシキガイシャアイアンジュ チョウフエイギョウショ", name:"株式会社愛安住 調布営業所", addr1:"東京都", addr2:"調布市布田3丁目45-6", bldg:"", lat:35.652, lng:139.546},
+  {id:"c6004",  area:"I", zip:"1820005", shortName:"アース調布", kana:"アースサポートチョウフ", name:"アースサポート調布", addr1:"東京都", addr2:"調布市つつじヶ丘1丁目5番2号", bldg:"", lat:35.657, lng:139.575},
+  {id:"c3543",  area:"I", zip:"1820013", shortName:"ケアウェル調布", kana:"ケアウェルチョウフテン", name:"ケアウェル調布店", addr1:"東京都", addr2:"調布市深大寺南町5-46-4", bldg:"", lat:35.664, lng:139.555},
   // K: 都心23区
-  {id:"c14138", area:"K", shortName:"あくとケア多摩", kana:"アクトケアタマ", name:"あくとケア多摩", addr1:"東京都", addr2:"墨田区押上1-17-6", bldg:"シャトレー押上101", lat:35.710, lng:139.813},
-  {id:"c4611",  area:"K", shortName:"シルバーはあと", kana:"カブシキガイシャ ハートメディカルケア", name:"株式会社ハートメディカルケア", addr1:"東京都", addr2:"千代田区神田神保町2-4", bldg:"太平電業第2ビル 8F", lat:35.695, lng:139.758},
+  {id:"c14138", area:"K", zip:"1310045", shortName:"あくとケア多摩", kana:"アクトケアタマ", name:"あくとケア多摩", addr1:"東京都", addr2:"墨田区押上1-17-6", bldg:"シャトレー押上101", lat:35.710, lng:139.813},
+  {id:"c4611",  area:"K", zip:"1010051", shortName:"シルバーはあと", kana:"カブシキガイシャ ハートメディカルケア", name:"株式会社ハートメディカルケア", addr1:"東京都", addr2:"千代田区神田神保町2-4", bldg:"太平電業第2ビル 8F", lat:35.695, lng:139.758},
   // H: 府中
-  {id:"c10672", area:"H", shortName:"PAS府中", kana:"パナソニック エイジフリーショップ フチュウ", name:"パナソニック エイジフリーショップ 府中", addr1:"東京都", addr2:"府中市小柳町2-29-2", bldg:"シティコア内海1階", lat:35.660, lng:139.500},
-  {id:"c3736",  area:"H", shortName:"ニック府中", kana:"ニック カブシキガイシャ フチュウエイギョウショ", name:"ニック株式会社 府中営業所", addr1:"東京都", addr2:"府中市清水が丘3-17-2", bldg:"", lat:35.668, lng:139.500},
-  {id:"c12335", area:"H", shortName:"すりぃでぃ府中", kana:"スリーディメーション", name:"株式会社スリーディメーション", addr1:"東京都", addr2:"府中市清水が丘3-29-4", bldg:"第2落合コーポ102", lat:35.668, lng:139.502},
-  {id:"c25",    area:"H", shortName:"TOP府中", kana:"ティーオーピー・フチュウテン", name:"有限会社ティー・オー・ピー 府中店", addr1:"東京都", addr2:"府中市矢崎町4-1", bldg:"大東京綜合卸売センター456", lat:35.659, lng:139.474},
-  {id:"c11949", area:"H", shortName:"ケア21東京西部", kana:"ケア21ライフプラストウキョウセイブ", name:"ケア21ライフプラス東京西部", addr1:"東京都", addr2:"府中市分梅町5-30-1 1F", bldg:"", lat:35.666, lng:139.468},
-  {id:"c14150", area:"H", shortName:"はなことば府中", kana:"ハナコトバ プラスフチュウ", name:"はなことばプラス 府中", addr1:"東京都", addr2:"府中市分梅町5-54-5", bldg:"", lat:35.667, lng:139.469},
-  {id:"c14606", area:"H", shortName:"ダーウィン", kana:"ダーウィン カブシキガイシャ", name:"ダーウィン株式会社", addr1:"東京都", addr2:"府中市美好町3-4-2", bldg:"分倍河原フラッツ302", lat:35.672, lng:139.475},
-  {id:"c8240",  area:"H", shortName:"FT府中", kana:"カブシキガイシャフロンティア フチュウエイギョウショ", name:"株式会社フロンティア 府中営業所", addr1:"東京都", addr2:"府中市片町3-3-2", bldg:"", lat:35.670, lng:139.473},
-  {id:"c3306",  area:"H", shortName:"SOMPO府中", kana:"ソンポケアフチュウ フクシヨウグ", name:"SOMPOケア府中 福祉用具", addr1:"東京都", addr2:"府中市宮西町2-16-2", bldg:"府中第一生命ビルディング2階", lat:35.671, lng:139.478},
-  // G: 西東京・国立
-  {id:"c4183",  area:"G", shortName:"FT西東京(多摩)", kana:"カブシキガイシャフロンティア ニシトウキョウエイギョウショ", name:"株式会社フロンティア 西東京営業所", addr1:"東京都", addr2:"西東京市保谷町3-14-20", bldg:"", lat:35.735, lng:139.555},
-  {id:"c58",    area:"G", shortName:"すりぃでぃ国立", kana:"スリーディメーション", name:"株式会社 スリーディメーション", addr1:"東京都", addr2:"国立市富士見台2-2-5", bldg:"", lat:35.678, lng:139.442},
-  {id:"c3156",  area:"G", shortName:"IMS国立", kana:"イムスイノベーションオブメディカルサービス", name:"イノベーションオブメディカルサービス国立営業所", addr1:"東京都", addr2:"国立市泉三丁目26-17", bldg:"", lat:35.672, lng:139.442},
-  // F: 日野（＋高倉）
-  {id:"c60",    area:"F", shortName:"多摩ケア", kana:"タマケア・サポート ユウゲンガイシャ", name:"多摩ケア・サポート有限会社", addr1:"東京都", addr2:"日野市栄町4-27-8", bldg:"", lat:35.682, lng:139.398},
-  {id:"c5552",  area:"F", shortName:"ひまわり館多摩", kana:"ヒマワリカンタマエイギョウショ", name:"ひまわり館多摩営業所", addr1:"東京都", addr2:"日野市多摩平1-14-100", bldg:"", lat:35.663, lng:139.383},
-  {id:"c62",    area:"F", shortName:"ニック多摩", kana:"ニック", name:"ニック株式会社 多摩営業所", addr1:"愛知県", addr2:"日野市豊田3-11-6", bldg:"", lat:35.661, lng:139.383, mapFixAddr:"東京都日野市豊田3-11-6"},
-  {id:"c30",    area:"F", shortName:"エイジ日野", kana:"アイキャン", name:"松下電工 エイジフリー介護チェーン日野", addr1:"東京都", addr2:"日野市多摩平3-2-13", bldg:"", group:"日野多摩平3-2-13", lat:35.666, lng:139.380},
-  {id:"c10682", area:"F", shortName:"PAS日野", kana:"パナソニック エイジフリーショップ ヒノ", name:"パナソニック エイジフリーショップ 日野", addr1:"東京都", addr2:"日野市多摩平3丁目2番13号", bldg:"", group:"日野多摩平3-2-13", lat:35.666, lng:139.380},
-  {id:"c38",    area:"F", shortName:"りんりん", kana:"キューオーエルケンキュウジョ リンリン", name:"ふれあい介護ショップ りんりん", addr1:"東京都", addr2:"日野市多摩平4-1-18", bldg:"メゾンセシライト601", lat:35.667, lng:139.378},
-  {id:"c5485",  area:"F", shortName:"FT八王子(多摩)", kana:"カブシキガイシャフロンティア (タマ)", name:"株式会社フロンティア 八王子営業所", addr1:"東京都", addr2:"八王子市高倉町4-11", bldg:"", lat:35.665, lng:139.365},
-  // C: 八王子中心・北
-  {id:"c2719",  area:"C", shortName:"トーカイ多摩", kana:"トーカイタマエイギョウショ", name:"トーカイ多摩営業所", addr1:"東京都", addr2:"八王子市大和田町2-12-18", bldg:"", lat:35.663, lng:139.350},
-  {id:"c36",    area:"C", shortName:"ケイアイ", kana:"ケイアイ", name:"株式会社 ケイアイ", addr1:"東京都", addr2:"八王子市大和田町3-10-12", bldg:"", lat:35.663, lng:139.348},
-  {id:"c3466",  area:"C", shortName:"HR八王子", kana:"ヘルスレントハチオウジ ステーション", name:"ヘルスレント八王子ステーション", addr1:"東京都", addr2:"八王子市大和田町5-16-1-2階", bldg:"", lat:35.662, lng:139.346},
-  {id:"c4796",  area:"C", shortName:"ウェルサポート", kana:"ウェルサポート", name:"ウェルサポート", addr1:"東京都", addr2:"八王子市横山町3-6", bldg:"JEビル5F", lat:35.658, lng:139.338},
-  {id:"c6656",  area:"C", shortName:"ケアスタッフ", kana:"ユウゲンガイシャ ケアスタッフ", name:"有限会社ケアスタッフ", addr1:"東京都", addr2:"八王子市中野上町1-8-22", bldg:"中野田口ビル2階", lat:35.665, lng:139.327},
-  {id:"c10683", area:"C", shortName:"PAS八王子", kana:"パナソニック エイジフリーショップ ハチオウジ", name:"パナソニック エイジフリーショップ 八王子", addr1:"東京都", addr2:"八王子市元本郷町2-9-22", bldg:"", lat:35.660, lng:139.322},
-  {id:"c44",    area:"C", shortName:"山六", kana:"ヤマロク", name:"ミニロクメイト事業部", addr1:"東京都", addr2:"八王子市元本郷町3-11-17", bldg:"", lat:35.661, lng:139.319},
-  {id:"c12470", area:"C", shortName:"さくら中野山王", kana:"サクラノナカノサンノウ", name:"さくらの郷 中野山王", addr1:"東京都", addr2:"八王子市中野山王2-20-11", bldg:"さくらの郷 中野山王", lat:35.670, lng:139.320},
-  {id:"c4157",  area:"C", shortName:"アビ八王子", kana:"アビリティーズ・ケアネット ハチオウジ", name:"アビリティーズ・ケアネット株式会社八王子営業所", addr1:"東京都", addr2:"八王子市久保山町1-9-154", bldg:"", lat:35.692, lng:139.342},
-  {id:"c21",    area:"C", shortName:"さつき", kana:"サツキメディカル", name:"有限会社 さつきメディカル", addr1:"東京都", addr2:"八王子市川口町1745", bldg:"小山ハイツ1階", lat:35.694, lng:139.293},
+  {id:"c10672", area:"H", zip:"1830013", shortName:"PAS府中", kana:"パナソニック エイジフリーショップ フチュウ", name:"パナソニック エイジフリーショップ 府中", addr1:"東京都", addr2:"府中市小柳町2-29-2", bldg:"シティコア内海1階", lat:35.660, lng:139.500},
+  {id:"c3736",  area:"H", zip:"1830015", shortName:"ニック府中", kana:"ニック カブシキガイシャ フチュウエイギョウショ", name:"ニック株式会社 府中営業所", addr1:"東京都", addr2:"府中市清水が丘3-17-2", bldg:"", lat:35.668, lng:139.500},
+  {id:"c12335", area:"H", zip:"1830015", shortName:"すりぃでぃ府中", kana:"スリーディメーション", name:"株式会社スリーディメーション", addr1:"東京都", addr2:"府中市清水が丘3-29-4", bldg:"第2落合コーポ102", lat:35.668, lng:139.502},
+  {id:"c25",    area:"H", zip:"1830025", shortName:"TOP府中", kana:"ティーオーピー・フチュウテン", name:"有限会社ティー・オー・ピー 府中店", addr1:"東京都", addr2:"府中市矢崎町4-1", bldg:"大東京綜合卸売センター456", lat:35.659, lng:139.474},
+  {id:"c11949", area:"H", zip:"1830033", shortName:"ケア21東京西部", kana:"ケア21ライフプラストウキョウセイブ", name:"ケア21ライフプラス東京西部", addr1:"東京都", addr2:"府中市分梅町5-30-1 1F", bldg:"", lat:35.666, lng:139.468},
+  {id:"c14150", area:"H", zip:"1830033", shortName:"はなことば府中", kana:"ハナコトバ プラスフチュウ", name:"はなことばプラス 府中", addr1:"東京都", addr2:"府中市分梅町5-54-5", bldg:"", lat:35.667, lng:139.469},
+  {id:"c14606", area:"H", zip:"1830045", shortName:"ダーウィン", kana:"ダーウィン カブシキガイシャ", name:"ダーウィン株式会社", addr1:"東京都", addr2:"府中市美好町3-4-2", bldg:"分倍河原フラッツ302", lat:35.672, lng:139.475},
+  {id:"c8240",  area:"H", zip:"1830021", shortName:"FT府中", kana:"カブシキガイシャフロンティア フチュウエイギョウショ", name:"株式会社フロンティア 府中営業所", addr1:"東京都", addr2:"府中市片町3-3-2", bldg:"", lat:35.670, lng:139.473},
+  {id:"c3306",  area:"H", zip:"1830022", shortName:"SOMPO府中", kana:"ソンポケアフチュウ フクシヨウグ", name:"SOMPOケア府中 福祉用具", addr1:"東京都", addr2:"府中市宮西町2-16-2", bldg:"府中第一生命ビルディング2階", lat:35.671, lng:139.478},
+  // G: 国立・西東京
+  {id:"c4183",  area:"G", zip:"2020015", shortName:"FT西東京(多摩)", kana:"カブシキガイシャフロンティア ニシトウキョウエイギョウショ", name:"株式会社フロンティア 西東京営業所", addr1:"東京都", addr2:"西東京市保谷町3-14-20", bldg:"", lat:35.735, lng:139.555},
+  {id:"c58",    area:"G", zip:"1860003", shortName:"すりぃでぃ国立", kana:"スリーディメーション", name:"株式会社 スリーディメーション", addr1:"東京都", addr2:"国立市富士見台2-2-5", bldg:"", lat:35.678, lng:139.442},
+  {id:"c3156",  area:"G", zip:"1860012", shortName:"IMS国立", kana:"イムスイノベーションオブメディカルサービス", name:"イノベーションオブメディカルサービス国立営業所", addr1:"東京都", addr2:"国立市泉三丁目26-17", bldg:"", lat:35.672, lng:139.442},
+  // F: 日野
+  {id:"c60",    area:"F", zip:"1910001", shortName:"多摩ケア", kana:"タマケア・サポート ユウゲンガイシャ", name:"多摩ケア・サポート有限会社", addr1:"東京都", addr2:"日野市栄町4-27-8", bldg:"", lat:35.682, lng:139.398},
+  {id:"c5552",  area:"F", zip:"1910062", shortName:"ひまわり館多摩", kana:"ヒマワリカンタマエイギョウショ", name:"ひまわり館多摩営業所", addr1:"東京都", addr2:"日野市多摩平1-14-100", bldg:"", lat:35.663, lng:139.383},
+  {id:"c62",    area:"F", zip:"1910053", shortName:"ニック多摩", kana:"ニック", name:"ニック株式会社 多摩営業所", addr1:"愛知県", addr2:"日野市豊田3-11-6", bldg:"", lat:35.661, lng:139.383, mapFixAddr:"東京都日野市豊田3-11-6"},
+  {id:"c30",    area:"F", zip:"1910062", shortName:"エイジ日野", kana:"アイキャン", name:"松下電工 エイジフリー介護チェーン日野", addr1:"東京都", addr2:"日野市多摩平3-2-13", bldg:"", group:"日野多摩平3-2-13", lat:35.666, lng:139.380},
+  {id:"c10682", area:"F", zip:"1910062", shortName:"PAS日野", kana:"パナソニック エイジフリーショップ ヒノ", name:"パナソニック エイジフリーショップ 日野", addr1:"東京都", addr2:"日野市多摩平3丁目2番13号", bldg:"", group:"日野多摩平3-2-13", lat:35.666, lng:139.380},
+  {id:"c38",    area:"F", zip:"1910062", shortName:"りんりん", kana:"キューオーエルケンキュウジョ リンリン", name:"ふれあい介護ショップ りんりん", addr1:"東京都", addr2:"日野市多摩平4-1-18", bldg:"メゾンセシライト601", lat:35.667, lng:139.378},
+  {id:"c5485",  area:"F", zip:"1920033", shortName:"FT八王子(多摩)", kana:"カブシキガイシャフロンティア (タマ)", name:"株式会社フロンティア 八王子営業所", addr1:"東京都", addr2:"八王子市高倉町4-11", bldg:"", lat:35.665, lng:139.365},
+  // C: 八王子北中心
+  {id:"c2719",  area:"C", zip:"1920045", shortName:"トーカイ多摩", kana:"トーカイタマエイギョウショ", name:"トーカイ多摩営業所", addr1:"東京都", addr2:"八王子市大和田町2-12-18", bldg:"", lat:35.663, lng:139.350},
+  {id:"c36",    area:"C", zip:"1920045", shortName:"ケイアイ", kana:"ケイアイ", name:"株式会社 ケイアイ", addr1:"東京都", addr2:"八王子市大和田町3-10-12", bldg:"", lat:35.663, lng:139.348},
+  {id:"c3466",  area:"C", zip:"1920045", shortName:"HR八王子", kana:"ヘルスレントハチオウジ ステーション", name:"ヘルスレント八王子ステーション", addr1:"東京都", addr2:"八王子市大和田町5-16-1-2階", bldg:"", lat:35.662, lng:139.346},
+  {id:"c4796",  area:"C", zip:"1920081", shortName:"ウェルサポート", kana:"ウェルサポート", name:"ウェルサポート", addr1:"東京都", addr2:"八王子市横山町3-6", bldg:"JEビル5F", lat:35.658, lng:139.338},
+  {id:"c6656",  area:"C", zip:"1920041", shortName:"ケアスタッフ", kana:"ユウゲンガイシャ ケアスタッフ", name:"有限会社ケアスタッフ", addr1:"東京都", addr2:"八王子市中野上町1-8-22", bldg:"中野田口ビル2階", lat:35.665, lng:139.327},
+  {id:"c10683", area:"C", zip:"1920051", shortName:"PAS八王子", kana:"パナソニック エイジフリーショップ ハチオウジ", name:"パナソニック エイジフリーショップ 八王子", addr1:"東京都", addr2:"八王子市元本郷町2-9-22", bldg:"", lat:35.660, lng:139.322},
+  {id:"c44",    area:"C", zip:"1920051", shortName:"山六", kana:"ヤマロク", name:"ミニロクメイト事業部", addr1:"東京都", addr2:"八王子市元本郷町3-11-17", bldg:"", lat:35.661, lng:139.319},
+  {id:"c12470", area:"C", zip:"1920042", shortName:"さくら中野山王", kana:"サクラノナカノサンノウ", name:"さくらの郷 中野山王", addr1:"東京都", addr2:"八王子市中野山王2-20-11", bldg:"さくらの郷 中野山王", lat:35.670, lng:139.320},
+  {id:"c4157",  area:"C", zip:"1920023", shortName:"アビ八王子", kana:"アビリティーズ・ケアネット ハチオウジ", name:"アビリティーズ・ケアネット株式会社八王子営業所", addr1:"東京都", addr2:"八王子市久保山町1-9-154", bldg:"", lat:35.692, lng:139.342},
+  {id:"c21",    area:"C", zip:"1930801", shortName:"さつき", kana:"サツキメディカル", name:"有限会社 さつきメディカル", addr1:"東京都", addr2:"八王子市川口町1745", bldg:"小山ハイツ1階", lat:35.694, lng:139.293},
   // D: 八王子西
-  {id:"c2156",  area:"D", shortName:"こもれび", kana:"コモレビ", name:"こもれび", addr1:"東京都", addr2:"八王子市元八王子町3-2872-1", bldg:"城山病院内", lat:35.661, lng:139.275},
-  {id:"c14125", area:"D", shortName:"ベストケア八王子", kana:"カイゴベストケアハチオウジ", name:"介護ショップベスト・ケア八王子", addr1:"東京都", addr2:"八王子市元八王子町3-488-3", bldg:"", lat:35.662, lng:139.288},
-  {id:"c14",    area:"D", shortName:"クワバラ", kana:"クワバラ", name:"株式会社クワバラ", addr1:"東京都", addr2:"八王子市長房町492番地", bldg:"", lat:35.658, lng:139.300},
-  {id:"c33",    area:"D", shortName:"シルバーS", kana:"シルバーサポート", name:"シルバーサポート・八王子", addr1:"東京都", addr2:"八王子市長房町405-1", bldg:"", lat:35.657, lng:139.301},
-  {id:"c43",    area:"D", shortName:"オートラン", kana:"ニホンオートランニングシステム", name:"日本オートランニングシステム株式会社", addr1:"東京都", addr2:"八王子市並木町24-8", bldg:"コスモ八王子並木町102", lat:35.653, lng:139.305},
-  // B: 八王子南・東
-  {id:"c55",    area:"B", shortName:"十字会", kana:"ジュウジカイケアステーション", name:"有限会社 十字会ケアステーション", addr1:"東京都", addr2:"八王子市めじろ台2丁目1番1", bldg:"京王めじろ台マンションA棟1階", lat:35.643, lng:139.308},
-  {id:"c14611", area:"B", shortName:"カミヤ八王子", kana:"クリエイティブカミヤショウナン", name:"クリエイティブカミヤ湘南営業所", addr1:"東京都", addr2:"八王子市みなみ野4-33-8", bldg:"すたいる八王子", lat:35.630, lng:139.322},
-  {id:"c52",    area:"B", shortName:"シルバー", kana:"シルバー", name:"シルバー", addr1:"東京都", addr2:"八王子市西片倉1-9-2", bldg:"", lat:35.638, lng:139.333},
-  {id:"c7629",  area:"B", shortName:"わかば", kana:"ケアショップ ワカバ", name:"ケアショップわかば", addr1:"東京都", addr2:"八王子市北野町557-19", bldg:"メゾン坂本102", lat:35.645, lng:139.354},
+  {id:"c2156",  area:"D", zip:"1930826", shortName:"こもれび", kana:"コモレビ", name:"こもれび", addr1:"東京都", addr2:"八王子市元八王子町3-2872-1", bldg:"城山病院内", lat:35.661, lng:139.275},
+  {id:"c14125", area:"D", zip:"1930826", shortName:"ベストケア八王子", kana:"カイゴベストケアハチオウジ", name:"介護ショップベスト・ケア八王子", addr1:"東京都", addr2:"八王子市元八王子町3-488-3", bldg:"", lat:35.662, lng:139.288},
+  {id:"c14",    area:"D", zip:"1930824", shortName:"クワバラ", kana:"クワバラ", name:"株式会社クワバラ", addr1:"東京都", addr2:"八王子市長房町492番地", bldg:"", lat:35.658, lng:139.300},
+  {id:"c33",    area:"D", zip:"1930824", shortName:"シルバーS", kana:"シルバーサポート", name:"シルバーサポート・八王子", addr1:"東京都", addr2:"八王子市長房町405-1", bldg:"", lat:35.657, lng:139.301},
+  {id:"c43",    area:"D", zip:"1930831", shortName:"オートラン", kana:"ニホンオートランニングシステム", name:"日本オートランニングシステム株式会社", addr1:"東京都", addr2:"八王子市並木町24-8", bldg:"コスモ八王子並木町102", lat:35.653, lng:139.305},
+  // B: 八王子南東
+  {id:"c55",    area:"B", zip:"1930833", shortName:"十字会", kana:"ジュウジカイケアステーション", name:"有限会社 十字会ケアステーション", addr1:"東京都", addr2:"八王子市めじろ台2丁目1番1", bldg:"京王めじろ台マンションA棟1階", lat:35.643, lng:139.308},
+  {id:"c14611", area:"B", zip:"1920916", shortName:"カミヤ八王子", kana:"クリエイティブカミヤショウナン", name:"クリエイティブカミヤ湘南営業所", addr1:"東京都", addr2:"八王子市みなみ野4-33-8", bldg:"すたいる八王子", lat:35.630, lng:139.322},
+  {id:"c52",    area:"B", zip:"1920917", shortName:"シルバー", kana:"シルバー", name:"シルバー", addr1:"東京都", addr2:"八王子市西片倉1-9-2", bldg:"", lat:35.638, lng:139.333},
+  {id:"c7629",  area:"B", zip:"1920906", shortName:"わかば", kana:"ケアショップ ワカバ", name:"ケアショップわかば", addr1:"東京都", addr2:"八王子市北野町557-19", bldg:"メゾン坂本102", lat:35.645, lng:139.354},
   // J: 町田・相模原
-  {id:"c4140",  area:"J", shortName:"ハートショップ", kana:"ハートショップ", name:"ハートショップ", addr1:"東京都", addr2:"町田市成瀬7-10-6", bldg:"成瀬団地6-106", lat:35.539, lng:139.473},
-  {id:"c6535",  area:"J", shortName:"はもれび", kana:"ハモレビ", name:"はもれび", addr1:"神奈川県", addr2:"相模原市南区東大沼2-19-6", bldg:"", lat:35.541, lng:139.420},
-  {id:"c107",   area:"J", shortName:"ウエマツ", kana:"ウエマツ", name:"有限会社ウエマツ", addr1:"神奈川県", addr2:"相模原市緑区佐野川12592-1", bldg:"", lat:35.639, lng:139.152},
-  // A: 地元・堀之内周辺
-  {id:"c37",    area:"A", shortName:"おおつか", kana:"フクシヨウグタイヨジギョウショ オオツカ", name:"福祉用具貸与事業所 おおつか", addr1:"東京都", addr2:"八王子市大塚796-1", bldg:"", lat:35.637, lng:139.405},
-  {id:"c41",    area:"A", shortName:"アイム", kana:"アイム", name:"株式会社 アイム", addr1:"東京都", addr2:"八王子市堀之内3-4-12", bldg:"", lat:35.631, lng:139.402},
-  {id:"c12764", area:"A", shortName:"堀之内ハウス", kana:"ファミィー・ホスピスホリノウチハウス", name:"ファミィー・ホスピス堀之内ハウス（モデルルーム）", addr1:"東京都", addr2:"八王子市堀之内3-30-9", bldg:"ファミィー・ホスピス堀之内ハウス", lat:35.632, lng:139.400},
-  {id:"c14292", area:"A", shortName:"メディ八王子", kana:"メディアケアセンターハチオウジ", name:"メディアケアセンター八王子", addr1:"東京都", addr2:"八王子市松木9-1-102", bldg:"", lat:35.626, lng:139.392},
-  {id:"c14334", area:"A", shortName:"介護多摩南", kana:"カイゴショップ タマミナミ", name:"介護ショップ多摩南", addr1:"東京都", addr2:"八王子市上柚木1178", bldg:"", lat:35.616, lng:139.378}
+  {id:"c4140",  area:"J", zip:"1940044", shortName:"ハートショップ", kana:"ハートショップ", name:"ハートショップ", addr1:"東京都", addr2:"町田市成瀬7-10-6", bldg:"成瀬団地6-106", lat:35.539, lng:139.473},
+  {id:"c6535",  area:"J", zip:"2520333", shortName:"はもれび", kana:"ハモレビ", name:"はもれび", addr1:"神奈川県", addr2:"相模原市南区東大沼2-19-6", bldg:"", lat:35.541, lng:139.420},
+  {id:"c107",   area:"J", zip:"2520181", shortName:"ウエマツ", kana:"ウエマツ", name:"有限会社ウエマツ", addr1:"神奈川県", addr2:"相模原市緑区佐野川12592-1", bldg:"", lat:35.639, lng:139.152},
+  // A: 地元・堀之内
+  {id:"c37",    area:"A", zip:"1920352", shortName:"おおつか", kana:"フクシヨウグタイヨジギョウショ オオツカ", name:"福祉用具貸与事業所 おおつか", addr1:"東京都", addr2:"八王子市大塚796-1", bldg:"", lat:35.637, lng:139.405},
+  {id:"c41",    area:"A", zip:"1920355", shortName:"アイム", kana:"アイム", name:"株式会社 アイム", addr1:"東京都", addr2:"八王子市堀之内3-4-12", bldg:"", lat:35.631, lng:139.402},
+  {id:"c12764", area:"A", zip:"1920355", shortName:"堀之内ハウス", kana:"ファミィー・ホスピスホリノウチハウス", name:"ファミィー・ホスピス堀之内ハウス（モデルルーム）", addr1:"東京都", addr2:"八王子市堀之内3-30-9", bldg:"ファミィー・ホスピス堀之内ハウス", lat:35.632, lng:139.400},
+  {id:"c14292", area:"A", zip:"1920362", shortName:"メディ八王子", kana:"メディアケアセンターハチオウジ", name:"メディアケアセンター八王子", addr1:"東京都", addr2:"八王子市松木9-1-102", bldg:"", lat:35.626, lng:139.392},
+  {id:"c14334", area:"A", zip:"1920373", shortName:"介護多摩南", kana:"カイゴショップ タマミナミ", name:"介護ショップ多摩南", addr1:"東京都", addr2:"八王子市上柚木1178", bldg:"", lat:35.616, lng:139.378}
 ];
 
+const areaOrder = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "他"];
 const areaNames = {
   "ALL":"すべて", "A":"A:地元堀之内", "B":"B:八王子南東", "C":"C:八王子北中心",
   "D":"D:八王子西", "E":"E:多摩", "F":"F:日野", "G":"G:国立・西東京",
@@ -631,54 +620,37 @@ function guessLocation(addr, manualArea) {
   return { area: "他", lat: 35.600, lng: 139.420 };
 }
 
-function formatFullAddr(d) {
-  return [d.addr1, d.addr2, d.bldg].filter(Boolean).join(" ");
-}
+function formatFullAddr(d) { return [d.addr1, d.addr2, d.bldg].filter(Boolean).join(" "); }
 function getMapQueryAddr(d) {
   if (d.mapFixAddr) return d.mapFixAddr;
   if (d.kind === "private") return d.addr.split(/[\s　]+/)[0];
   return `${d.addr1}${d.addr2}`;
 }
-
 function calcDistKm(a, b) {
-  const R = 6371;
-  const dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
+  const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLng = (b.lng - a.lng) * Math.PI / 180;
   const la1 = a.lat * Math.PI / 180, la2 = b.lat * Math.PI / 180;
   const x = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
   return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 }
 
-let customClients = [];
-let masterData = [];
-let itemConfigs = {};
-
+let customClients = [], masterData = [], itemConfigs = {};
 function loadCustomClients() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) customClients = JSON.parse(raw);
-    if (!Array.isArray(customClients)) customClients = [];
-  } catch (e) { customClients = []; }
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) customClients = JSON.parse(raw); if (!Array.isArray(customClients)) customClients = []; } catch (e) { customClients = []; }
 }
-function persistCustomClients() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customClients)); } catch (e) {}
-}
+function persistCustomClients() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(customClients)); } catch (e) {} }
 
 function rebuildMasterData() {
   masterData = [...baseMasterData];
   customClients.forEach(c => {
-    let pool = masterData.filter(m => m.area === c.area);
-    if (pool.length === 0) pool = masterData;
+    let pool = masterData.filter(m => m.area === c.area); if (pool.length === 0) pool = masterData;
     let bestDist = Infinity, bestTarget = null;
     pool.forEach(m => { const dist = calcDistKm(c, m); if (dist < bestDist) { bestDist = dist; bestTarget = m; } });
     const idx = bestTarget ? masterData.indexOf(bestTarget) : masterData.length - 1;
     masterData.splice(idx + 1, 0, { ...c, isCustom: true });
   });
   const defStay = Math.max(0, parseInt(document.getElementById("defaultStayMin")?.value, 10) || 10);
-  masterData.forEach(d => {
-    if (!itemConfigs[d.id]) itemConfigs[d.id] = { jobType: "delivery", stay: defStay, stayEdited: false, tc: { type: "none", time: "10:00" } };
-  });
-  const dl = document.getElementById("clientDatalist");
-  dl.innerHTML = "";
+  masterData.forEach(d => { if (!itemConfigs[d.id]) itemConfigs[d.id] = { jobType: "delivery", stay: defStay, stayEdited: false, tc: { type: "none", time: "10:00" } }; });
+  const dl = document.getElementById("clientDatalist"); dl.innerHTML = "";
   const seen = new Set();
   masterData.forEach(d => {
     const label = `${d.shortName}（${d.name}）`;
@@ -692,39 +664,28 @@ function onZipInput(zipId, addrId, msgId, addr1Id = null) {
   if (zip.length === 7 && zip !== lastLookedZipMap[zipId]) lookupZip(zipId, addrId, msgId, addr1Id);
 }
 async function lookupZip(zipId, addrId, msgId, addr1Id = null) {
-  const zip = document.getElementById(zipId).value.replace(/[^\d]/g, "");
-  const msg = document.getElementById(msgId);
+  const zip = document.getElementById(zipId).value.replace(/[^\d]/g, ""), msg = document.getElementById(msgId);
   if (zip.length !== 7) { msg.textContent = "7桁の数字を入力してください"; return; }
   lastLookedZipMap[zipId] = zip; msg.textContent = "住所を検索中...";
   try {
-    const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`);
-    const data = await res.json();
+    const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`), data = await res.json();
     if (data && data.results && data.results.length > 0) {
-      const r = data.results[0];
-      const town = (r.address3 && r.address3 !== "以下に掲載がない場合") ? r.address3 : "";
+      const r = data.results[0], town = (r.address3 && r.address3 !== "以下に掲載がない場合") ? r.address3 : "";
       const addrInp = document.getElementById(addrId);
-      if (addr1Id) {
-        document.getElementById(addr1Id).value = r.address1;
-        addrInp.value = `${r.address2}${town}`;
-      } else {
-        addrInp.value = `${r.address1}${r.address2}${town}`;
-      }
-      msg.textContent = "✅ 番地を後ろに入力してください";
-      addrInp.focus();
+      if (addr1Id) { document.getElementById(addr1Id).value = r.address1; addrInp.value = `${r.address2}${town}`; }
+      else addrInp.value = `${r.address1}${r.address2}${town}`;
+      msg.textContent = "✅ 番地を後ろに入力してください"; addrInp.focus();
     } else { msg.textContent = "該当する郵便番号が見つかりません（手入力可）"; }
   } catch (e) { msg.textContent = "通信不可のため住所を手入力してください"; }
 }
 
 async function fetchExactCoords(addr, fallbackGeo) {
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1600);
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 1600);
     const res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(addr)}`, { signal: ctrl.signal });
-    clearTimeout(timer);
-    const data = await res.json();
+    clearTimeout(timer); const data = await res.json();
     if (Array.isArray(data) && data.length > 0 && data[0].geometry && data[0].geometry.coordinates) {
-      const [lng, lat] = data[0].geometry.coordinates;
-      return { lat, lng };
+      const [lng, lat] = data[0].geometry.coordinates; return { lat, lng };
     }
   } catch (e) {}
   return { lat: fallbackGeo.lat, lng: fallbackGeo.lng };
@@ -734,25 +695,19 @@ function openClientModal() { renderCustomClientList(); document.getElementById("
 function closeClientModal() { document.getElementById("clientModal").style.display = "none"; }
 
 async function saveNewClient() {
-  const shortName = document.getElementById("cShortName").value.trim();
-  const kana = document.getElementById("cKana").value.trim();
-  const name = document.getElementById("cName").value.trim();
-  const addr1 = document.getElementById("cAddr1").value.trim();
-  const addr2 = document.getElementById("cAddr2").value.trim();
-  const bldg = document.getElementById("cBldg").value.trim();
+  const shortName = document.getElementById("cShortName").value.trim(), kana = document.getElementById("cKana").value.trim();
+  const name = document.getElementById("cName").value.trim(), addr1 = document.getElementById("cAddr1").value.trim();
+  const addr2 = document.getElementById("cAddr2").value.trim(), bldg = document.getElementById("cBldg").value.trim();
+  const zip = document.getElementById("cZip").value.replace(/[^\d]/g, "") || "9999999";
   const manualArea = document.getElementById("cArea").value;
   if (!shortName || !name || !addr1 || !addr2) { alert("得意先名・得意先名称・住所1・住所2は必須です。"); return; }
 
-  const btn = document.getElementById("saveClientBtn");
-  btn.disabled = true; btn.textContent = "登録・位置計算中...";
-  const fullForGeo = `${addr1}${addr2}`;
-  const geo = guessLocation(fullForGeo, manualArea);
+  const btn = document.getElementById("saveClientBtn"); btn.disabled = true; btn.textContent = "登録・位置計算中...";
+  const fullForGeo = `${addr1}${addr2}`, geo = guessLocation(fullForGeo, manualArea);
   const exact = (manualArea === "auto") ? await fetchExactCoords(fullForGeo, geo) : { lat: geo.lat, lng: geo.lng };
 
-  const id = "custom_" + Date.now();
-  customClients.push({ id, area: geo.area, shortName, kana, name, addr1, addr2, bldg, lat: exact.lat, lng: exact.lng });
+  customClients.push({ id: "custom_" + Date.now(), area: geo.area, zip, shortName, kana, name, addr1, addr2, bldg, lat: exact.lat, lng: exact.lng });
   persistCustomClients(); rebuildMasterData(); renderSelector(); renderCustomClientList();
-
   document.getElementById("cShortName").value = ""; document.getElementById("cKana").value = "";
   document.getElementById("cName").value = ""; document.getElementById("cZip").value = "";
   document.getElementById("cZipMsg").textContent = ""; document.getElementById("cAddr1").value = "東京都";
@@ -763,8 +718,7 @@ async function saveNewClient() {
 
 function deleteCustomClient(id) {
   if (!confirm("この新規得意先をマスタから削除しますか？")) return;
-  customClients = customClients.filter(c => c.id !== id);
-  persistCustomClients();
+  customClients = customClients.filter(c => c.id !== id); persistCustomClients();
   if (selectedIds.has(id)) removeTaskFromSelection(id);
   rebuildMasterData(); renderSelector(); renderCustomClientList(); recalcAndRender();
 }
@@ -792,11 +746,7 @@ function importCustomClients() {
     const arr = JSON.parse(document.getElementById("importText").value.trim());
     if (!Array.isArray(arr)) throw new Error();
     let added = 0;
-    arr.forEach(c => {
-      if (c.shortName && c.name && c.addr2 && !masterData.some(m => m.id === c.id || (m.shortName === c.shortName && m.addr2 === c.addr2))) {
-        customClients.push(c); added++;
-      }
-    });
+    arr.forEach(c => { if (c.shortName && c.name && c.addr2 && !masterData.some(m => m.id === c.id || (m.shortName === c.shortName && m.addr2 === c.addr2))) { customClients.push(c); added++; } });
     persistCustomClients(); rebuildMasterData(); renderSelector(); renderCustomClientList();
     document.getElementById("importText").value = ""; document.getElementById("importBox").style.display = "none";
     alert(`${added}件の新規得意先を取り込みました！`);
@@ -808,11 +758,10 @@ function openManual(page = 1) { showManualPage(page); document.getElementById("m
 function closeManual() { document.getElementById("manualModal").style.display = "none"; }
 function showManualPage(page) {
   currentManualPage = page;
-  const tabs = document.querySelectorAll("#manualNav .m-tab");
-  tabs.forEach((t, i) => { t.classList.toggle("active", ((i < 5) ? (i + 1) : "all") === page); });
+  document.querySelectorAll("#manualNav .m-tab").forEach((t, i) => { t.classList.toggle("active", ((i < 5) ? (i + 1) : "all") === page); });
   [1, 2, 3, 4, 5].forEach(p => { document.getElementById("mPage" + p).classList.toggle("active", page === "all" || page === p); });
   const footer = document.getElementById("manualFooter");
-  if (page === "all") { footer.style.display = "none"; }
+  if (page === "all") footer.style.display = "none";
   else {
     footer.style.display = "flex";
     document.getElementById("mPageIndicator").textContent = `${page} / 5 ページ`;
@@ -864,12 +813,26 @@ function initTabs() {
   });
 }
 
+function cleanKanaForSort(item) {
+  return (item.kana || item.shortName || "").replace(/^(カブシキガイシャ|ユウゲンガイシャ|イリョウホウジン|シャカイフクシホウジン)\s*/g, "");
+}
+
 function renderSelector() {
   const box = document.getElementById("selectorList");
   const q = document.getElementById("searchBox").value.trim().toLowerCase();
   box.innerHTML = "";
 
-  const sorted = [...masterData].sort((a,b) => (a.kana || a.shortName).localeCompare((b.kana || b.shortName), "ja"));
+  // 優先1: エリア(A〜K)順 → 優先2: 各エリア内は郵便番号(近い)順 → 優先3: カナ(頭株抜き)順
+  const sorted = [...masterData].sort((a, b) => {
+    const oa = areaOrder.indexOf(a.area);
+    const ob = areaOrder.indexOf(b.area);
+    const areaDiff = (oa === -1 ? 99 : oa) - (ob === -1 ? 99 : ob);
+    if (areaDiff !== 0) return areaDiff;
+    const za = (a.zip || "9999999").replace(/[^\d]/g, "");
+    const zb = (b.zip || "9999999").replace(/[^\d]/g, "");
+    if (za !== zb) return za.localeCompare(zb);
+    return cleanKanaForSort(a).localeCompare(cleanKanaForSort(b), "ja");
+  });
 
   sorted.forEach(item => {
     if (currentTab !== "ALL" && item.area !== currentTab) return;
@@ -977,29 +940,150 @@ function onSelectionOrConstraintChanged() {
   else recalcAndRender();
 }
 
+function simulateRoute(order, startPos, startMin, speedKmh, includeReturn = true) {
+  let pos = startPos, time = startMin;
+  let exactLateCount = 0, amLateCount = 0, totalLate = 0, totalWait = 0, totalTravel = 0, revCount = 0;
+  let lastLoopIdx = -1;
+
+  for (const it of order) {
+    const tr = calcTravelMin(pos, it, speedKmh);
+    const arr = time + tr;
+    let wait = 0, late = 0;
+    if (it.tc.type === "am") {
+      if (arr > 720) { late = arr - 720; amLateCount++; }
+    } else if (it.tc.type === "pm") {
+      if (arr < 720) wait = 720 - arr;
+    } else if (it.tc.type === "exact") {
+      const target = timeToMin(it.tc.time);
+      if (arr < target) wait = target - arr;
+      else if (arr > target) { late = arr - target; exactLateCount++; }
+    }
+    if (lastLoopIdx !== -1 && it.loopIdx < lastLoopIdx) revCount++;
+    lastLoopIdx = it.loopIdx;
+    totalLate += late; totalWait += wait; totalTravel += tr;
+    time = arr + wait + it.stay; pos = it;
+  }
+  if (includeReturn && order.length > 0) totalTravel += calcTravelMin(pos, ORIGIN, speedKmh);
+  const score = (exactLateCount * 1000000000) + (amLateCount * 100000000) + (totalLate * 1000000) + (totalTravel * 100) + (totalWait * 8) + (revCount * 5);
+  return { exactLateCount, amLateCount, totalLate, totalWait, totalTravel, revCount, score };
+}
+
+function calcFutureDeadlinePenalty(currPos, currDepTime, unvisited, speedKmh) {
+  const deadlines = unvisited
+    .filter(u => u.tc.type === "exact" || u.tc.type === "am")
+    .map(u => ({ item: u, deadline: (u.tc.type === "am") ? 720 : timeToMin(u.tc.time) }))
+    .sort((a, b) => a.deadline - b.deadline);
+
+  let fExactLate = 0, fAmLate = 0, fLateMin = 0;
+  for (const d of deadlines) {
+    const arrDirect = currDepTime + calcTravelMin(currPos, d.item, speedKmh);
+    if (arrDirect > d.deadline) {
+      if (d.item.tc.type === "exact") fExactLate++; else fAmLate++;
+      fLateMin += (arrDirect - d.deadline);
+    }
+  }
+  let p = currPos, t = currDepTime;
+  for (const d of deadlines) {
+    const arr = t + calcTravelMin(p, d.item, speedKmh);
+    let wait = 0;
+    if (d.item.tc.type === "exact" && arr < d.deadline) wait = d.deadline - arr;
+    if (arr > d.deadline) {
+      fLateMin += (arr - d.deadline) * 0.5;
+      if (d.item.tc.type === "exact") fExactLate += 0.5; else fAmLate += 0.5;
+    }
+    t = arr + wait + d.item.stay; p = d.item;
+  }
+  return (fExactLate * 1000000000) + (fAmLate * 100000000) + (fLateMin * 1000000);
+}
+
 function optimizeSegment(segItems, startPos, startMin, speedKmh) {
   if (segItems.length <= 1 || !segItems.some(it => it.tc.type !== "none")) return segItems;
-  const BEAM_WIDTH = 35;
-  let beam = [{ lastPos: startPos, lastLoopIdx: -1, time: startMin, path: [], used: new Array(segItems.length).fill(false), lateCount: 0, totalLate: 0, totalWait: 0, totalTravel: 0, orderPenalty: 0 }];
+
+  const BEAM_WIDTH = 60;
+  let beam = [{
+    lastPos: startPos, lastLoopIdx: -1, time: startMin, path: [],
+    used: new Array(segItems.length).fill(false),
+    exactLateCount: 0, amLateCount: 0, totalLate: 0, totalWait: 0, totalTravel: 0, revCount: 0
+  }];
+
   for (let step = 0; step < segItems.length; step++) {
     const nextBeam = [];
     for (const st of beam) {
       for (let i = 0; i < segItems.length; i++) {
         if (st.used[i]) continue;
         const it = segItems[i], tr = calcTravelMin(st.lastPos, it, speedKmh), arr = st.time + tr;
-        let wait = 0, late = 0;
-        if (it.tc.type === "am") { if (arr > 720) late = arr - 720; }
+        let wait = 0, late = 0, exLate = 0, amLate = 0;
+        if (it.tc.type === "am") { if (arr > 720) { late = arr - 720; amLate = 1; } }
         else if (it.tc.type === "pm") { if (arr < 720) wait = 720 - arr; }
-        else if (it.tc.type === "exact") { const t = timeToMin(it.tc.time); if (arr < t) wait = t - arr; else if (arr > t) late = arr - t; }
+        else if (it.tc.type === "exact") {
+          const target = timeToMin(it.tc.time);
+          if (arr < target) wait = target - arr; else if (arr > target) { late = arr - target; exLate = 1; }
+        }
         const dep = arr + wait + it.stay, nextUsed = st.used.slice(); nextUsed[i] = true;
-        const revPen = (st.lastLoopIdx !== -1 && it.loopIdx < st.lastLoopIdx) ? 15 : 0;
-        const score = ((st.lateCount + (late > 0 ? 1 : 0)) * 1000000) + ((st.totalLate + late) * 10000) + ((st.totalWait + wait) * 100) + ((st.totalTravel + tr) * 10) + (st.orderPenalty + revPen);
-        nextBeam.push({ lastPos: it, lastLoopIdx: it.loopIdx, time: dep, path: [...st.path, it], used: nextUsed, lateCount: st.lateCount + (late > 0 ? 1 : 0), totalLate: st.totalLate + late, totalWait: st.totalWait + wait, totalTravel: st.totalTravel + tr, orderPenalty: st.orderPenalty + revPen, score });
+        const unvisited = []; for (let k = 0; k < segItems.length; k++) { if (!nextUsed[k]) unvisited.push(segItems[k]); }
+        const futurePen = calcFutureDeadlinePenalty(it, dep, unvisited, speedKmh);
+        const rev = (st.lastLoopIdx !== -1 && it.loopIdx < st.lastLoopIdx) ? 1 : 0;
+
+        const newExLate = st.exactLateCount + exLate, newAmLate = st.amLateCount + amLate;
+        const newTotalLate = st.totalLate + late, newTotalWait = st.totalWait + wait;
+        const newTotalTravel = st.totalTravel + tr, newRev = st.revCount + rev;
+        const score = futurePen + (newExLate * 1000000000) + (newAmLate * 100000000) + (newTotalLate * 1000000) + (newTotalTravel * 100) + (newTotalWait * 8) + (newRev * 5);
+
+        nextBeam.push({
+          lastPos: it, lastLoopIdx: it.loopIdx, time: dep, path: [...st.path, it],
+          used: nextUsed, exactLateCount: newExLate, amLateCount: newAmLate,
+          totalLate: newTotalLate, totalWait: newTotalWait, totalTravel: newTotalTravel, revCount: newRev, score
+        });
       }
     }
-    nextBeam.sort((a, b) => a.score - b.score); beam = nextBeam.slice(0, BEAM_WIDTH);
+    nextBeam.sort((a, b) => a.score - b.score);
+    beam = nextBeam.slice(0, BEAM_WIDTH);
   }
-  return beam[0].path;
+  const candA = beam[0].path;
+
+  const exacts = segItems.filter(it => it.tc.type === "exact").sort((a, b) => timeToMin(a.tc.time) - timeToMin(b.tc.time));
+  const ams = segItems.filter(it => it.tc.type === "am");
+  const others = segItems.filter(it => it.tc.type === "none" || it.tc.type === "pm");
+  let candB = [...exacts];
+  const insertBest = (arr, item) => {
+    let bestOrder = null, bestScore = Infinity;
+    for (let pos = 0; pos <= arr.length; pos++) {
+      const trial = [...arr.slice(0, pos), item, ...arr.slice(pos)];
+      const sim = simulateRoute(trial, startPos, startMin, speedKmh, true);
+      if (sim.score < bestScore) { bestScore = sim.score; bestOrder = trial; }
+    }
+    return bestOrder;
+  };
+  ams.forEach(it => { candB = insertBest(candB, it); });
+  others.forEach(it => { candB = insertBest(candB, it); });
+
+  let best = (simulateRoute(candA, startPos, startMin, speedKmh, true).score <= simulateRoute(candB, startPos, startMin, speedKmh, true).score) ? [...candA] : [...candB];
+  let bestScore = simulateRoute(best, startPos, startMin, speedKmh, true).score;
+
+  for (let loop = 0; loop < 6; loop++) {
+    let improved = false;
+    for (let i = 0; i < best.length; i++) {
+      const item = best[i], base = [...best.slice(0, i), ...best.slice(i + 1)];
+      for (let j = 0; j <= base.length; j++) {
+        if (j === i) continue;
+        const trial = [...base.slice(0, j), item, ...base.slice(j)];
+        const sc = simulateRoute(trial, startPos, startMin, speedKmh, true).score;
+        if (sc < bestScore) { best = trial; bestScore = sc; improved = true; break; }
+      }
+      if (improved) break;
+    }
+    if (improved) continue;
+    for (let i = 0; i < best.length; i++) {
+      for (let j = i + 1; j < best.length; j++) {
+        const trial = [...best]; const tmp = trial[i]; trial[i] = trial[j]; trial[j] = tmp;
+        const sc = simulateRoute(trial, startPos, startMin, speedKmh, true).score;
+        if (sc < bestScore) { best = trial; bestScore = sc; improved = true; break; }
+      }
+      if (improved) break;
+    }
+    if (!improved) break;
+  }
+  return best;
 }
 
 function findNearestLoopIdx(item, orderedMaster) {
@@ -1137,7 +1221,7 @@ function recalcAndRender() {
 
   sumBar.style.display = "block";
   sumBar.innerHTML = `🕘 出発 ${startStr} → 🏁 最終帰社 ${minToTime(returnTime)}（総移動：約${totalTravelAll}分 / 総作業時間：${totalStayAll}分）` +
-    (lateCount > 0 ? ` <span style="color:#c53030;">｜⚠️ 時間指定超過あり(${lateCount}件)</span>` : ` ｜ ✅ 時間指定すべて厳守可能`);
+    (lateCount > 0 ? ` <span style="color:#c53030;">｜⚠️ 時間指定超過あり(${lateCount}件) ※出発時間を早めるか調整してください</span>` : ` ｜ ✅ 時間指定すべて厳守可能`);
 
   const groupCount = {};
   schedule.forEach(d => { if (d.group) groupCount[d.group] = (groupCount[d.group] || 0) + 1; });
