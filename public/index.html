@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>配送ルート＆時刻表作成ツール（エリア・郵便番号順対応版）</title>
+<title>配送ルート＆時刻表作成ツール（現場リカバリ対応版）</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
@@ -32,6 +32,7 @@
   .btn-yellow { background: #d69e2e; color: #1a202c; }
   .btn-purple { background: #6b46c1; color: #fff; }
   .btn-mini { padding: 3px 8px; font-size: 0.8rem; background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0; border-radius: 4px; }
+  .btn-now { padding: 3px 8px; font-size: 0.78rem; background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; border-radius: 4px; }
   .btn-del { padding: 3px 8px; font-size: 0.8rem; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 4px; }
   .gmap-btn { background: #dd6b20; color: #fff; margin: 4px 6px 4px 0; }
   .area-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
@@ -60,7 +61,7 @@
   .tb-exact { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
   .route-item { display: flex; flex-wrap: wrap; align-items: flex-start; padding: 10px; border-bottom: 1px solid #e2e8f0; gap: 10px; }
 
-  .route-time-col { min-width: 178px; font-size: 0.84rem; padding: 8px 10px; border-radius: 6px; }
+  .route-time-col { min-width: 188px; font-size: 0.84rem; padding: 8px 10px; border-radius: 6px; }
   .job-box-delivery { background: #ebf8ff; border: 1px solid #90cdf4; border-left: 6px solid #2b6cb0; }
   .job-box-return   { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid #c53030; }
   .job-box-both     { background: #f0fff4; border: 1px solid #9ae6b4; border-left: 6px solid #2f855a; }
@@ -69,9 +70,11 @@
   .job-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.76rem; font-weight: bold; color: #fff; margin-left: 4px; }
   .tag-delivery { background: #2b6cb0; } .tag-return { background: #c53030; }
   .tag-both { background: #2f855a; } .tag-base { background: #d69e2e; color: #1a202c; }
+  .actual-dep-tag { display: inline-block; background: #2d3748; color: #fff; font-size: 0.72rem; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
 
   .route-detail-col { flex: 1; min-width: 240px; }
-  .route-edit-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.82rem; background: #f7fafc; padding: 5px 8px; border-radius: 5px; }
+  .route-edit-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; font-size: 0.82rem; background: #f7fafc; padding: 6px 8px; border-radius: 5px; }
+  .dep-adjust-box { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid #cbd5e0; padding: 2px 6px; border-radius: 4px; }
   .private-meta { font-size: 0.82rem; color: #553c9a; background: #faf5ff; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 3px; border: 1px solid #e9d8fd; }
   .same-addr-row { background: #fffaf0; }
   .late-alert { color: #c53030; font-weight: bold; font-size: 0.8rem; margin-top: 3px; }
@@ -241,8 +244,8 @@
     </div>
 
     <div class="lock-bar no-print" id="lockBar" style="display:none;">
-      <span>🔒 <strong>手動調整モード中</strong>（↑↓での入れ替えや「帰社」の順番を保持しています。時間指定を優先し直したい場合は右のボタンを押してください）</span>
-      <button class="btn-mini" onclick="runAutoOptimize()">🔄 自動最適順に戻す</button>
+      <span id="lockBarMsg">🔒 <strong>手動調整モード中</strong>（↑↓での入れ替えや「帰社」の順番を保持しています）</span>
+      <button class="btn-mini" onclick="runAutoOptimize()">🔄 最適順で再計算（実発入力済みは固定）</button>
     </div>
 
     <div class="summary-bar" id="summaryBar" style="display:none;"></div>
@@ -368,7 +371,7 @@
       </div>
       <div class="m-item">
         <div class="m-item-head">➕ 得意先を新規登録（ボタン）</div>
-        <div class="m-item-body">既存の59件に載っていない新しい得意先を登録する画面を開きます。登録した得意先はブラウザに保存され、次回開いたときもずっと使えます（詳細は5ページ目参照）。</div>
+        <div class="m-item-body">既存の60件に載っていない新しい得意先を登録する画面を開きます。登録した得意先はブラウザに保存され、次回開いたときもずっと使えます（詳細は5ページ目参照）。</div>
       </div>
       <div class="m-item">
         <div class="m-item-head">📖 取扱説明書（ボタン）</div>
@@ -380,7 +383,7 @@
       <div class="m-section-title">2. 入力部分（得意先の検索・選択・帰社追加）</div>
       <div class="m-item">
         <div class="m-item-head">🔍 検索欄（得意先名・カナ・得意先名称・住所）</div>
-        <div class="m-item-body">「クワバラ」「さつき」「府中」「カナ」など、どれを入力してもリアルタイムで下のリストを絞り込めます。</div>
+        <div class="m-item-body">「クワバラ」「LL八王子」「府中」「カナ」など、どれを入力してもリアルタイムで下のリストを絞り込めます。</div>
       </div>
       <div class="m-item">
         <div class="m-item-head">種別（新規選択時）プルダウン</div>
@@ -445,25 +448,24 @@
       <div class="m-item">
         <div class="m-item-head">回転方向 ＆「🔄 自動最適順に並べ直す」ボタン</div>
         <div class="m-item-body">
-          ・<strong>反時計回り【基本】：</strong>朝のうちに東・北（多摩→調布→府中→国立→日野→八王子）を回り、堀之内へ戻る基本形です。<br>
-          ・<strong>時計回り【八王子先回り】：</strong>午前中に八王子側へ行く用事がある場合はこちらを選びます。<br>
-          ・<strong>🔄 自動最適順に並べ直す：</strong><strong>時間指定（何時・午前・午後）を最優先で厳守</strong>しつつ、ムダの少ない最適順へ自動で並べ直します。
+          ・<strong>反時計回り【基本】 / 時計回り【八王子先回り】：</strong>基本の回り方を指定します。<br>
+          ・<strong>🔄 自動最適順に並べ直す：</strong><strong>時間指定（何時・午前・午後）を最優先で厳守</strong>しつつ、ムダの少ない最適順へ並べ直します。もし途中で「実発時刻」を入力している行があれば、<strong>その行までは固定して残りの未完了ルートだけを最適化</strong>します。
         </div>
       </div>
       <div class="m-item">
-        <div class="m-item-head">出力ボタン（コピー・印刷・Googleマップナビ）</div>
+        <div class="m-item-head">途中の遅延・差し込み対応（実発時刻の入力・🕒今ボタン）</div>
         <div class="m-item-body">
-          ・<strong>📋 指示用テキストをコピー：</strong>時刻・作業時間・種別・得意先名・得意先名称・住所を含む運行表テキストをコピーします。<br>
-          ・<strong>🖨️ 印刷する：</strong>色分けを保ったまま印刷できます。<br>
-          ・<strong>🗺️ Googleマップアプリでナビを開く：</strong>実際のスマホナビを起動します（※最大9箇所＋拠点ごとに自動で分割ボタンが出ます）。
+          ・予想以上に作業が長引き「3番目の出発が10:45になってしまった！」という時は、3番目の操作バーにある<strong>「実発:」欄に <code>10:45</code> を入力（または「🕒今」ボタンをタップ）</strong>してください。<br>
+          ・その時刻を基準に、<strong>4番目以降の到着時刻・帰社予定がすべて自動で再計算</strong>されます。（元に戻したい時は「↺」ボタンを押します）<br>
+          ・途中で急な差し込みが入った場合は、上段から追加して「↑」「↓」で差し込むか、「🔄 自動最適順に並べ直す」で残りルートを組み直せます。
         </div>
       </div>
       <div class="m-item">
-        <div class="m-item-head">ルート一覧の色分け・時間指定ルール・手動調整（↑↓・作業時間）</div>
+        <div class="m-item-head">出力ボタン・色分け・時間指定ルール</div>
         <div class="m-item-body">
           ・<strong>○番目の枠の色：</strong><span style="background:#2b6cb0;color:#fff;padding:0 5px;border-radius:3px;">青＝納品</span> ／ <span style="background:#c53030;color:#fff;padding:0 5px;border-radius:3px;">赤＝返却</span> ／ <span style="background:#2f855a;color:#fff;padding:0 5px;border-radius:3px;">緑＝納品と返却</span> ／ <span style="background:#d69e2e;color:#1a202c;padding:0 5px;border-radius:3px;">黄＝帰社</span><br>
-          ・<strong>時間指定の計算：</strong>指定時刻より早く着く場合は「⏳ 早着待機」となり、<strong>指定時刻から作業時間がスタート</strong>します。遅れる場合は「⚠️ 約○分遅れ見込み」と警告が出ます。<br>
-          ・<strong>各行の調整バー：</strong><code>↑</code> <code>↓</code> で順番の入れ替え、作業時間（分）や種別の個別変更、<code>×外す</code> ができます。手動で入れ替えると「🔒手動調整モード」になり、その後時間を変えても順番が勝手に崩れません。
+          ・<strong>時間指定の計算：</strong>早く着く場合は「⏳ 早着待機」となり、<strong>指定時刻から作業時間がスタート</strong>します。遅れる場合は「⚠️ 約○分遅れ見込み」と警告が出ます。<br>
+          ・<strong>コピー／印刷／Googleマップナビ：</strong>LINE共有用テキストのコピー、色付き印刷、9箇所自動分割のGoogleマップ起動が可能です。
         </div>
       </div>
     </div>
@@ -567,6 +569,7 @@ const baseMasterData = [
   {id:"c14611", area:"B", zip:"1920916", shortName:"カミヤ八王子", kana:"クリエイティブカミヤショウナン", name:"クリエイティブカミヤ湘南営業所", addr1:"東京都", addr2:"八王子市みなみ野4-33-8", bldg:"すたいる八王子", lat:35.630, lng:139.322},
   {id:"c52",    area:"B", zip:"1920917", shortName:"シルバー", kana:"シルバー", name:"シルバー", addr1:"東京都", addr2:"八王子市西片倉1-9-2", bldg:"", lat:35.638, lng:139.333},
   {id:"c7629",  area:"B", zip:"1920906", shortName:"わかば", kana:"ケアショップ ワカバ", name:"ケアショップわかば", addr1:"東京都", addr2:"八王子市北野町557-19", bldg:"メゾン坂本102", lat:35.645, lng:139.354},
+  {id:"cLL8",   area:"B", zip:"1920907", shortName:"LL八王子", kana:"リアンレーヴハチオウジ", name:"リアンレーヴ八王子", addr1:"東京都", addr2:"八王子市長沼町1246-2", bldg:"", lat:35.644, lng:139.366},
   // J: 町田・相模原
   {id:"c4140",  area:"J", zip:"1940044", shortName:"ハートショップ", kana:"ハートショップ", name:"ハートショップ", addr1:"東京都", addr2:"町田市成瀬7-10-6", bldg:"成瀬団地6-106", lat:35.539, lng:139.473},
   {id:"c6535",  area:"J", zip:"2520333", shortName:"はもれび", kana:"ハモレビ", name:"はもれび", addr1:"神奈川県", addr2:"相模原市南区東大沼2-19-6", bldg:"", lat:35.541, lng:139.420},
@@ -788,6 +791,10 @@ function switchView(view) {
 
 function timeToMin(str) { const [h, m] = str.split(":").map(Number); return h * 60 + m; }
 function minToTime(min) { const m = Math.round(min); return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); }
+function getNowHHMM() {
+  const now = new Date();
+  return String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+}
 function calcTravelMin(a, b, speedKmh) {
   if (a.group && b.group && a.group === b.group) return 0;
   const distKm = calcDistKm(a, b);
@@ -822,14 +829,11 @@ function renderSelector() {
   const q = document.getElementById("searchBox").value.trim().toLowerCase();
   box.innerHTML = "";
 
-  // 優先1: エリア(A〜K)順 → 優先2: 各エリア内は郵便番号(近い)順 → 優先3: カナ(頭株抜き)順
   const sorted = [...masterData].sort((a, b) => {
-    const oa = areaOrder.indexOf(a.area);
-    const ob = areaOrder.indexOf(b.area);
+    const oa = areaOrder.indexOf(a.area), ob = areaOrder.indexOf(b.area);
     const areaDiff = (oa === -1 ? 99 : oa) - (ob === -1 ? 99 : ob);
     if (areaDiff !== 0) return areaDiff;
-    const za = (a.zip || "9999999").replace(/[^\d]/g, "");
-    const zb = (b.zip || "9999999").replace(/[^\d]/g, "");
+    const za = (a.zip || "9999999").replace(/[^\d]/g, ""), zb = (b.zip || "9999999").replace(/[^\d]/g, "");
     if (za !== zb) return za.localeCompare(zb);
     return cleanKanaForSort(a).localeCompare(cleanKanaForSort(b), "ja");
   });
@@ -886,7 +890,7 @@ function addTaskToSelection(id, keepJobType = false) {
     selectedIds.add(id);
     if (!keepJobType) itemConfigs[id].jobType = document.getElementById("defaultJobType").value;
     if (!itemConfigs[id].stayEdited) itemConfigs[id].stay = Math.max(0, parseInt(document.getElementById("defaultStayMin").value, 10) || 0);
-    routeSequence.push({ uid: "u" + (uidCounter++), kind: "task", id });
+    routeSequence.push({ uid: "u" + (uidCounter++), kind: "task", id, actualDep: "" });
   }
 }
 
@@ -910,7 +914,7 @@ async function addPrivateHouse() {
   routeSequence.push({
     uid: "p" + (uidCounter++), kind: "private", id: null, area: geo.area, lat: exactCoords.lat, lng: exactCoords.lng,
     shortName: "個人宅", name, addr, addr1: "", addr2: addr, bldg: "",
-    jobType, stay, stayEdited: true, tc: { type: tcType, time: tcTime }, clientName, staffName
+    jobType, stay, stayEdited: true, tc: { type: tcType, time: tcTime }, clientName, staffName, actualDep: ""
   });
 
   document.getElementById("pName").value = ""; document.getElementById("pZip").value = "";
@@ -924,7 +928,7 @@ async function addPrivateHouse() {
 
 function addReturnBase() {
   const defStay = Math.max(0, parseInt(document.getElementById("defaultStayMin").value, 10) || 10);
-  routeSequence.push({ uid: "b" + (uidCounter++), kind: "base", stay: defStay, stayEdited: false });
+  routeSequence.push({ uid: "b" + (uidCounter++), kind: "base", stay: defStay, stayEdited: false, actualDep: "" });
   manualLocked = true; recalcAndRender();
 }
 
@@ -935,8 +939,12 @@ function clearAll() {
   renderSelector(); recalcAndRender();
 }
 
+function hasAnyActualDep() {
+  return routeSequence.some(r => r.actualDep && r.actualDep.trim() !== "");
+}
+
 function onSelectionOrConstraintChanged() {
-  if (!manualLocked && !routeSequence.some(r => r.kind === "base")) runAutoOptimize();
+  if (!manualLocked && !routeSequence.some(r => r.kind === "base") && !hasAnyActualDep()) runAutoOptimize();
   else recalcAndRender();
 }
 
@@ -1093,6 +1101,7 @@ function findNearestLoopIdx(item, orderedMaster) {
   return bestIdx + 0.5;
 }
 
+// 実績時刻(actualDep)が入っている最後の地点までは固定し、それ以降の未完了ルートを最適化する
 function runAutoOptimize() {
   manualLocked = false;
   const dir = document.querySelector('input[name="dir"]:checked').value;
@@ -1101,31 +1110,63 @@ function runAutoOptimize() {
   const orderedMaster = orderedRaw.map((d, idx) => ({ ...d, loopIdx: idx }));
   const loopMap = new Map(orderedMaster.map(d => [d.id, d]));
   const speedKmh = parseInt(document.getElementById("speedKmh").value, 10) || 24;
-  let currTime = timeToMin(document.getElementById("startTime").value || "09:00");
-  const newSeq = []; let segment = [];
 
-  const flushSegment = () => {
+  // 最後の「実発時刻入力済み」行を探す
+  let lastFixedIdx = -1;
+  routeSequence.forEach((r, idx) => {
+    if (r.actualDep && r.actualDep.trim() !== "") lastFixedIdx = idx;
+  });
+
+  const currentSchedule = buildSchedule();
+  let startPos = ORIGIN;
+  let currTime = timeToMin(document.getElementById("startTime").value || "09:00");
+  const newSeq = [];
+
+  if (lastFixedIdx >= 0) {
+    for (let i = 0; i <= lastFixedIdx; i++) newSeq.push(routeSequence[i]);
+    const fixedLast = currentSchedule[lastFixedIdx];
+    startPos = fixedLast;
+    currTime = fixedLast.dep;
+  }
+
+  const remaining = routeSequence.slice(lastFixedIdx + 1);
+  let segment = [];
+
+  const flushSegment = (segStartPos) => {
     if (segment.length === 0) return;
     const enriched = segment.map(r => {
       if (r.kind === "task") { const m = loopMap.get(r.id), cfg = itemConfigs[r.id]; return { ...r, ...m, stay: cfg.stay, tc: cfg.tc }; }
       else return { ...r, loopIdx: findNearestLoopIdx(r, orderedMaster) };
     }).sort((a, b) => a.loopIdx - b.loopIdx);
-    const opt = optimizeSegment(enriched, ORIGIN, currTime, speedKmh);
-    let pos = ORIGIN;
+    const opt = optimizeSegment(enriched, segStartPos, currTime, speedKmh);
+    let pos = segStartPos;
     opt.forEach(it => {
       const tr = calcTravelMin(pos, it, speedKmh), arr = currTime + tr;
       let wait = 0;
       if (it.tc.type === "pm" && arr < 720) wait = 720 - arr;
       else if (it.tc.type === "exact") { const t = timeToMin(it.tc.time); if (arr < t) wait = t - arr; }
       currTime = arr + wait + it.stay; pos = it;
-      if (it.kind === "task") newSeq.push({ uid: it.uid, kind: "task", id: it.id });
+      if (it.kind === "task") newSeq.push({ uid: it.uid, kind: "task", id: it.id, actualDep: "" });
       else newSeq.push(segment.find(s => s.uid === it.uid));
     });
     currTime += calcTravelMin(pos, ORIGIN, speedKmh); segment = [];
   };
 
-  routeSequence.forEach(r => { if (r.kind === "base") { flushSegment(); newSeq.push(r); currTime += r.stay; } else segment.push(r); });
-  flushSegment(); routeSequence = newSeq; recalcAndRender();
+  let segOrigin = startPos;
+  remaining.forEach(r => {
+    if (r.kind === "base") {
+      flushSegment(segOrigin);
+      newSeq.push(r);
+      currTime += r.stay;
+      segOrigin = ORIGIN;
+    } else {
+      segment.push(r);
+    }
+  });
+  flushSegment(segOrigin);
+
+  routeSequence = newSeq;
+  recalcAndRender();
 }
 
 function moveStep(idx, delta) {
@@ -1147,26 +1188,33 @@ function buildSchedule() {
   let currPos = ORIGIN, currTime = startMin;
 
   return routeSequence.map(r => {
+    const hasActual = Boolean(r.actualDep && r.actualDep.trim() !== "");
     if (r.kind === "base") {
-      const travel = calcTravelMin(currPos, ORIGIN, speedKmh), arr = currTime + travel, dep = arr + r.stay;
+      const travel = calcTravelMin(currPos, ORIGIN, speedKmh), arr = currTime + travel;
+      const calcDep = arr + r.stay;
+      const dep = hasActual ? timeToMin(r.actualDep) : calcDep;
       currPos = ORIGIN; currTime = dep;
-      return { ...ORIGIN, uid: r.uid, kind: "base", jobType: "base", stay: r.stay, tc: { type: "none", time: "" }, travel, arr, wait: 0, late: 0, workStart: arr, dep };
+      return { ...ORIGIN, uid: r.uid, kind: "base", jobType: "base", stay: r.stay, tc: { type: "none", time: "" }, travel, arr, wait: 0, late: 0, workStart: arr, dep, actualDep: r.actualDep || "", isManualDep: hasActual };
     } else if (r.kind === "private") {
       const travel = calcTravelMin(currPos, r, speedKmh), arr = currTime + travel;
       let wait = 0, late = 0;
       if (r.tc.type === "am") { if (arr > 720) late = arr - 720; }
       else if (r.tc.type === "pm") { if (arr < 720) wait = 720 - arr; }
       else if (r.tc.type === "exact") { const t = timeToMin(r.tc.time); if (arr < t) wait = t - arr; else if (arr > t) late = arr - t; }
-      const workStart = arr + wait, dep = workStart + r.stay; currPos = r; currTime = dep;
-      return { ...r, travel, arr, wait, late, workStart, dep };
+      const workStart = arr + wait, calcDep = workStart + r.stay;
+      const dep = hasActual ? timeToMin(r.actualDep) : calcDep;
+      currPos = r; currTime = dep;
+      return { ...r, travel, arr, wait, late, workStart, dep, actualDep: r.actualDep || "", isManualDep: hasActual };
     } else {
       const m = masterMap.get(r.id), cfg = itemConfigs[r.id], travel = calcTravelMin(currPos, m, speedKmh), arr = currTime + travel;
       let wait = 0, late = 0;
       if (cfg.tc.type === "am") { if (arr > 720) late = arr - 720; }
       else if (cfg.tc.type === "pm") { if (arr < 720) wait = 720 - arr; }
       else if (cfg.tc.type === "exact") { const t = timeToMin(cfg.tc.time); if (arr < t) wait = t - arr; else if (arr > t) late = arr - t; }
-      const workStart = arr + wait, dep = workStart + cfg.stay; currPos = m; currTime = dep;
-      return { uid: r.uid, kind: "task", ...m, jobType: cfg.jobType, stay: cfg.stay, tc: cfg.tc, travel, arr, wait, late, workStart, dep };
+      const workStart = arr + wait, calcDep = workStart + cfg.stay;
+      const dep = hasActual ? timeToMin(r.actualDep) : calcDep;
+      currPos = m; currTime = dep;
+      return { uid: r.uid, kind: "task", ...m, jobType: cfg.jobType, stay: cfg.stay, tc: cfg.tc, travel, arr, wait, late, workStart, dep, actualDep: r.actualDep || "", isManualDep: hasActual };
     }
   });
 }
@@ -1201,7 +1249,18 @@ function recalcAndRender() {
   const schedule = buildSchedule();
   const visitCount = schedule.filter(s => s.kind !== "base").length;
   document.getElementById("countDisp").textContent = visitCount;
-  document.getElementById("lockBar").style.display = (manualLocked && schedule.length > 0) ? "flex" : "none";
+
+  const anyActual = hasAnyActualDep();
+  const lockBar = document.getElementById("lockBar");
+  if ((manualLocked || anyActual) && schedule.length > 0) {
+    lockBar.style.display = "flex";
+    document.getElementById("lockBarMsg").innerHTML = anyActual
+      ? `🕒 <strong>実発時刻入力あり</strong>（入力した地点までを固定し、それ以降を自動再計算しています）`
+      : `🔒 <strong>手動調整モード中</strong>（↑↓での入れ替えや「帰社」の順番を保持しています）`;
+  } else {
+    lockBar.style.display = "none";
+  }
+
   renderGoogleMapButtons(schedule);
 
   const res = document.getElementById("routeResult"), sumBar = document.getElementById("summaryBar");
@@ -1221,7 +1280,7 @@ function recalcAndRender() {
 
   sumBar.style.display = "block";
   sumBar.innerHTML = `🕘 出発 ${startStr} → 🏁 最終帰社 ${minToTime(returnTime)}（総移動：約${totalTravelAll}分 / 総作業時間：${totalStayAll}分）` +
-    (lateCount > 0 ? ` <span style="color:#c53030;">｜⚠️ 時間指定超過あり(${lateCount}件) ※出発時間を早めるか調整してください</span>` : ` ｜ ✅ 時間指定すべて厳守可能`);
+    (lateCount > 0 ? ` <span style="color:#c53030;">｜⚠️ 時間指定超過あり(${lateCount}件) ※順番見直しや「自動最適順に並べ直す」をお試しください</span>` : ` ｜ ✅ 時間指定すべて厳守可能`);
 
   const groupCount = {};
   schedule.forEach(d => { if (d.group) groupCount[d.group] = (groupCount[d.group] || 0) + 1; });
@@ -1239,12 +1298,15 @@ function recalcAndRender() {
     const lateHtml = d.late > 0 ? `<div class="late-alert">⚠️ 指定時刻より約${d.late}分遅れ見込み</div>` : "";
     const waitHtml = d.wait > 0 ? `<div class="wait-info">⏳ 早着待機 → ${minToTime(d.workStart)}作業開始</div>` : "";
     const startShow = d.wait > 0 ? `${minToTime(d.arr)}着 / ${minToTime(d.workStart)}開始` : `${minToTime(d.arr)}着`;
+    const depShow = d.isManualDep
+      ? `<strong style="color:#1a365d;background:#fefcbf;padding:1px 4px;border-radius:3px;">${minToTime(d.dep)}実発</strong>`
+      : `${minToTime(d.dep)}発`;
     const mapUrl = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(getMapQueryAddr(d));
 
     const timeCol = document.createElement("div"); timeCol.className = `route-time-col job-box-${d.jobType}`;
     timeCol.innerHTML = `
       <div style="font-weight:bold;">${idx + 1}番目 <span class="job-tag tag-${d.jobType}">${jobLabels[d.jobType]}</span> <span style="font-size:0.78rem;">(移動 約${d.travel}分)</span></div>
-      <div style="margin-top:3px;"><strong>${startShow}</strong> → ${minToTime(d.dep)}発</div>
+      <div style="margin-top:3px;"><strong>${startShow}</strong> → ${depShow}</div>
       <div style="font-weight:bold;margin-top:2px;">🛠️ 作業時間：${d.stay}分</div>
       ${waitHtml}${lateHtml}
     `;
@@ -1274,7 +1336,7 @@ function recalcAndRender() {
     const btnUp = document.createElement("button"); btnUp.className = "btn-mini"; btnUp.textContent = "↑"; btnUp.disabled = (idx === 0); btnUp.onclick = () => moveStep(idx, -1);
     const btnDown = document.createElement("button"); btnDown.className = "btn-mini"; btnDown.textContent = "↓"; btnDown.disabled = (idx === schedule.length - 1); btnDown.onclick = () => moveStep(idx, 1);
 
-    const stayLbl = document.createElement("label"); stayLbl.textContent = "作業時間:";
+    const stayLbl = document.createElement("label"); stayLbl.textContent = "作業:";
     const stayInp = document.createElement("input"); stayInp.type = "number"; stayInp.min = 0; stayInp.max = 180; stayInp.value = d.stay; stayInp.style.width = "48px";
     stayInp.onchange = () => {
       const val = Math.max(0, parseInt(stayInp.value, 10) || 0);
@@ -1283,7 +1345,44 @@ function recalcAndRender() {
       recalcAndRender();
     };
     stayLbl.appendChild(stayInp); stayLbl.append("分");
-    editBar.appendChild(btnUp); editBar.appendChild(btnDown); editBar.appendChild(stayLbl);
+
+    // 実際の出発時刻上書きコントロール
+    const depBox = document.createElement("div");
+    depBox.className = "dep-adjust-box";
+    depBox.innerHTML = `<span style="font-weight:bold;color:#2c5282;">実発:</span>`;
+    const depInp = document.createElement("input");
+    depInp.type = "time";
+    depInp.value = d.actualDep || "";
+    depInp.title = "遅れなどで実際に出発した時刻を入力すると4番目以降が再計算されます";
+    depInp.style.padding = "2px 4px";
+    depInp.style.fontSize = "0.82rem";
+    depInp.onchange = () => {
+      routeSequence[idx].actualDep = depInp.value || "";
+      recalcAndRender();
+    };
+    const btnNow = document.createElement("button");
+    btnNow.className = "btn-now";
+    btnNow.textContent = "🕒今";
+    btnNow.title = "現在時刻を実発時刻にセットして以降を再計算";
+    btnNow.onclick = () => {
+      routeSequence[idx].actualDep = getNowHHMM();
+      recalcAndRender();
+    };
+    depBox.appendChild(depInp);
+    depBox.appendChild(btnNow);
+    if (d.isManualDep) {
+      const btnResetDep = document.createElement("button");
+      btnResetDep.className = "btn-mini";
+      btnResetDep.textContent = "↺";
+      btnResetDep.title = "自動計算に戻す";
+      btnResetDep.onclick = () => {
+        routeSequence[idx].actualDep = "";
+        recalcAndRender();
+      };
+      depBox.appendChild(btnResetDep);
+    }
+
+    editBar.appendChild(btnUp); editBar.appendChild(btnDown); editBar.appendChild(stayLbl); editBar.appendChild(depBox);
 
     if (d.kind === "task" || d.kind === "private") {
       const jSel = document.createElement("select");
@@ -1342,7 +1441,7 @@ function renderMapView() {
     const c = document.createElement("div");
     c.className = "map-step-card"; c.style.borderLeft = `4px solid ${jobColors[d.jobType]}`;
     const dispTitle = (d.kind === "task") ? `[${d.shortName}] ${d.name}` : d.name;
-    c.innerHTML = `<div><strong>${idx + 1}. [${jobLabels[d.jobType]}] ${dispTitle}</strong></div><div style="font-size:0.78rem;color:#4a5568;">${minToTime(d.arr)}着〜${minToTime(d.dep)}発（移動${d.travel}分/作業${d.stay}分）</div>`;
+    c.innerHTML = `<div><strong>${idx + 1}. [${jobLabels[d.jobType]}] ${dispTitle}</strong></div><div style="font-size:0.78rem;color:#4a5568;">${minToTime(d.arr)}着〜${minToTime(d.dep)}${d.isManualDep ? "実発" : "発"}（移動${d.travel}分/作業${d.stay}分）</div>`;
     c.onclick = () => { if (leafletMap && markerRefs[idx]) { leafletMap.setView([d.lat, d.lng], 14); markerRefs[idx].openPopup(); } };
     side.appendChild(c);
   });
@@ -1442,8 +1541,9 @@ function copyText() {
     else if (d.tc.type === "pm") spec = " [午後指定]";
     else if (d.tc.type === "exact") spec = ` [${d.tc.time}指定]`;
     const alertTxt = d.late > 0 ? ` ⚠️約${d.late}分遅れ見込` : (d.wait > 0 ? ` (待機→${minToTime(d.workStart)}作業開始)` : "");
+    const depSuffix = d.isManualDep ? "実発" : "発";
 
-    txt += `${idx + 1}. 【${jLabel}】 ${minToTime(d.arr)}着〜${minToTime(d.dep)}発 (移動${d.travel}分 / 作業時間${d.stay}分)${alertTxt}\n`;
+    txt += `${idx + 1}. 【${jLabel}】 ${minToTime(d.arr)}着〜${minToTime(d.dep)}${depSuffix} (移動${d.travel}分 / 作業時間${d.stay}分)${alertTxt}\n`;
     if (d.kind === "base") txt += `   🏢 ${d.name}（2便積込）\n`;
     else if (d.kind === "private") {
       txt += `   [${d.area}] 🏠 [個人宅] ${d.name}${spec}\n   ${d.addr}\n`;
